@@ -1,0 +1,22 @@
+use getset::CopyGetters;
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// Data Structure
+
+#[repr(C)]
+#[derive(CopyGetters, Debug)]
+#[getset(get_copy = "pub")]
+pub struct UDP {
+    source: u16,
+    dest: u16,
+    len: u16,
+    checksum: u16
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// Implements
+
