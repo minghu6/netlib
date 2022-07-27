@@ -5,23 +5,26 @@ use std::error::Error;
 use std::ffi::CString;
 use std::mem::{size_of, transmute, zeroed, MaybeUninit};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use std::ptr::{null, null_mut, slice_from_raw_parts, self};
+use std::os::raw;
+use std::ptr::{self, null, null_mut, slice_from_raw_parts};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
-use std::thread::{self, Thread, sleep};
+use std::thread::{self, sleep, Thread};
 use std::time::{Duration, Instant};
 
 use bincode::{options, Options};
 use clap::Parser;
 use either::Either;
 use libc::{
-    __errno_location, c_void, fd_set, getpid, getprotobyname, recv, select,
-    sendto, setsockopt, signal, sockaddr, sockaddr_in, socket, timeval,
-    AF_INET, EINTR, FD_SET, FD_ZERO, PT_NULL, SIGINT, SOCK_RAW, SOL_SOCKET,
-    SO_RCVBUF,
+    __errno_location, alarm, c_void, exit, fd_set, getpid, getprotobyname,
+    printf, pthread_exit, recv, recvfrom, select, sendto, setsockopt, signal,
+    sockaddr, sockaddr_in, socket, timeval, AF_INET, EINTR, FD_SET, FD_ZERO,
+    IPPROTO_IP, IPPROTO_IPIP, IP_MULTICAST_IF, PT_NULL, SIGALRM, SIGINT,
+    SOCK_RAW, SOL_SOCKET, SO_BROADCAST, SO_RCVBUF, IP_TTL, IP_MULTICAST_TTL,
 };
 use netlib::data::SockAddrIn;
+use netlib::network::inet_cksum;
 use netlib::network::ip::Protocol;
 use netlib::{__item, cstr, defe};
 use netlib::{
@@ -46,7 +49,8 @@ defe! {
         SendToFailed,
         CreateRawSocketFailed(i32),
         UnresolvedHost(String),
-        MMPoisonError
+        MMPoisonError,
+        DeserializeFailed
     }
 
     pub enum CliError {
@@ -63,7 +67,7 @@ macro_rules! get_packet_mut {
         $packets
             .iter_mut()
             .find(|pac| pac.seq == $seq)
-            .ok_or(box PingError::UnmatchedPacketSeq($seq))
+            .ok_or(PingError::UnmatchedPacketSeq($seq))
     };
 }
 
@@ -87,12 +91,16 @@ pub struct PingPacket {
     received: bool,
 }
 
+enum UnpackRes {
+    Succcess,
+    Retry
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Implements
 
-fn icmp_pack(buf: &mut [u8], seq: u16, payload_size: u8) {
+fn icmp_pack(buf: &mut [u8], seq: u16, icmp_packet_len: u8) {
     let config = bincode_options!();
 
     let ty: u8 = ICMPType::EchoRequest.into();
@@ -108,94 +116,92 @@ fn icmp_pack(buf: &mut [u8], seq: u16, payload_size: u8) {
         un,
     };
 
+    println!("pack icmp id: {}, seq: {:0x}", icmp.get_idseq().0, icmp.get_idseq().1);
+
     config
         .serialize_into(&mut buf[..size_of::<ICMP>()], &icmp)
         .unwrap();
-    for i in 0..payload_size {
-        buf[size_of::<ICMP>() + i as usize] = i as u8; // create non-zero data to check sum
-    }
+    // for i in 0..(icmp_packet_len as usize - size_of::<ICMP>()) {
+    //     buf[size_of::<ICMP>() + i as usize] = i as u8; // create non-zero data to check sum
+    // }
 
-    icmp.cksum = unsafe {
-        ICMP::calc_cksum(
-            buf.as_mut_ptr(),
-            payload_size as u32 + size_of::<ICMP>() as u32,
-        )
-    };
+    icmp.cksum =
+        unsafe { inet_cksum(buf.as_mut_ptr(), icmp_packet_len as u32) };
 
     config
         .serialize_into(&mut buf[..size_of::<ICMP>()], &icmp)
         .unwrap();
 }
 
+// #[allow(unused)]
+// unsafe fn icmp_send(
+//     rawsock: i32,
+//     dst: sockaddr_in,
+//     packets: Arc<Mutex<Vec<PingPacket>>>,
+//     init_signal_arrived: Arc<AtomicBool>,
+// ) -> Result<(), PingError> {
+//     let mut sendbuf = [0u8; 64];
+//     let ipv4_dst = Ipv4Addr::from(dst.sin_addr.s_addr);
 
-unsafe fn icmp_send(
-    rawsock: i32,
-    dst: sockaddr_in,
-    packets: Arc<Mutex<Vec<PingPacket>>>,
-    init_signal_arrived: Arc<AtomicBool>,
-) -> Result<(), PingError> {
-    let payload_size = 64;
-    let mut sendbuf = [0u8; 64 + size_of::<ICMP>()];
-    let ipv4_dst = Ipv4Addr::from(dst.sin_addr.s_addr);
+//     let mut packets_sent: usize = 0;
+//     while !init_signal_arrived.load(Ordering::Relaxed) {
+//         let seq = packets_sent as u16;
+//         icmp_pack(&mut sendbuf, seq, 64);
 
-    let mut packets_sent: usize = 0;
-    while !init_signal_arrived.load(Ordering::Relaxed) {
-        let seq = packets_sent as u16;
-        icmp_pack(&mut sendbuf, seq, payload_size);
+//         let size = sendto(
+//             rawsock,
+//             sendbuf.as_ptr() as *const c_void,
+//             sendbuf.len(),
+//             0,
+//             &dst as *const sockaddr_in as *const sockaddr,
+//             size_of::<sockaddr_in>() as u32,
+//         );
 
-        let size = sendto(
-            rawsock,
-            sendbuf.as_ptr() as *const c_void,
-            sendbuf.len(),
-            0,
-            &dst as *const sockaddr_in as *const sockaddr,
-            size_of::<sockaddr_in>() as u32,
-        );
+//         if size < 0 {
+//             eprintln!("sendto {:#?} failed", ipv4_dst);
+//             break;
+//         } else {
+//             println!("send to {:#?} {} bytes", ipv4_dst, size)
+//         }
 
-        if size < 0 {
-            eprintln!(
-                "sendto {:#?} failed",
-                ipv4_dst
-            );
-            break;
-        }
-        else {
-            println!("send to {:#?} {} bytes", ipv4_dst, size)
-        }
+//         push_packet!(packets.lock().unwrap());
+//         packets_sent += 1;
 
-        push_packet!(packets.lock().unwrap());
-        packets_sent += 1;
+//         sleep(Duration::new(1, 0));
+//     }
 
-        sleep(Duration::new(1, 0));
-    }
-
-    Ok(())
-}
+//     Ok(())
+// }
 
 
 unsafe fn icmp_unpack(
     buf: &mut [u8],
     packets: Arc<Mutex<Vec<PingPacket>>>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<UnpackRes, PingError> {
     let config = bincode_options!().allow_trailing_bytes();
-    println!("icmp unpack...");
 
-    let iphdr: IP = config.deserialize(&buf[..])?;
+    let iphdr: IP = config
+        .deserialize(&buf[..])
+        .or_else(|_err| Err(PingError::DeserializeFailed))?;
     // let iphdr: IP = ptr::read (buf.as_ptr() as *const _);
-    println!("icmp unpack... -> unpack iphdr");
 
     let iphdr_len = iphdr.get_hdrsize();
-    println!("icmp unpack... -> get iphdr len ({})", iphdr_len);
 
-    let icmphdr: ICMP = config.deserialize(&buf[iphdr_len..])?;
+    let icmphdr: ICMP = config
+        .deserialize(&buf[iphdr_len..])
+        .or_else(|_err| Err(PingError::DeserializeFailed))?;
 
     let (id, seq) = icmphdr.get_idseq();
     let pid = getpid();
 
-    println!("reply type: {:#?}", icmphdr.parse_cm_type());
+    // println!("reply type: {:#?}", icmphdr.parse_cm_type());
+    // println!("reply seq: {:0x}, id: {:0x}, pid: {:0x}", seq, id, pid);
 
-    if icmphdr.parse_cm_type()? == ICMPType::EchoReply
-        && id == (pid & 0xffff) as u16
+    let icmp_type = icmphdr
+    .parse_cm_type()
+    .or_else(|_err| Err(PingError::DeserializeFailed))?;
+
+    if icmp_type == ICMPType::EchoReply && id == (pid & 0xffff) as u16
     {
         match packets.lock() {
             Ok(mut packets_guard) => {
@@ -206,43 +212,83 @@ unsafe fn icmp_unpack(
                 let src = iphdr.get_src_ip();
                 let rrt = Instant::now().duration_since(packet.sent_time);
 
+                let rrt_micros = rrt.as_micros();
+
                 println!(
-                    "{} bytes from {:#?}: icmp_seq={} ttl={} rtt={:?}",
-                    buf.len(),
+                    "{} bytes from {:#?}: icmp_seq={} ttl={} rtt={:.3} ms",
+                    iphdr.get_packet_len(),
                     src,
                     seq,
-                    iphdr.ttl(),
-                    rrt,
+                    iphdr.ttl,
+                    (rrt_micros as f64) / (10u32.pow(3) as f64),
                 );
             }
             // 这个结构设计得，不能直接返回，真的不太行
             Err(_err) => unreachable!(),
         }
-    } else {
-        return Err(box PingError::UnHandledICMP(ICMPType::EchoReply, pid));
     }
+    else {
+        return Ok(UnpackRes::Retry);
+    }
+    // else just return
+
+    Ok(UnpackRes::Succcess)
+}
+
+
+unsafe fn ping_once(
+    rawsock: i32,
+    sendbuf: &mut [u8],
+    packets: Arc<Mutex<Vec<PingPacket>>>,
+    dst: sockaddr_in,
+) -> Result<(), PingError> {
+    let ipv4_dst = Ipv4Addr::from(dst.sin_addr.s_addr);
+
+    let seq = packets.lock().unwrap().len() as u16;
+    icmp_pack(sendbuf, seq, 64);
+
+    let size = sendto(
+        rawsock,
+        sendbuf.as_ptr() as *const c_void,
+        sendbuf.len(),
+        0,
+        &dst as *const sockaddr_in as *const sockaddr,
+        size_of::<sockaddr_in>() as u32,
+    );
+
+    if size < 0 {
+        eprintln!("sendto {:#?} failed", ipv4_dst);
+        return Err(PingError::SendToFailed);
+    } else {
+        // println!("send to {:#?} {} bytes", ipv4_dst, size)
+    }
+
+    push_packet!(packets.lock().unwrap());
 
     Ok(())
 }
 
-
-unsafe fn icmp_recv(
+unsafe fn ping_recv_loop(
     rawsock: i32,
     packets: Arc<Mutex<Vec<PingPacket>>>,
+    dst: sockaddr_in,
     init_signal_arrived: Arc<AtomicBool>,
 ) -> Result<(), PingError> {
     let mut recv_buf = [0u8; 2 * 1024];
     let mut readfd: fd_set = zeroed(); // bits map
 
-    while !init_signal_arrived.load(Ordering::Relaxed) {
+    let mut send_buf = [0u8; 68];  // 56 + 8 + 4
+    ping_once(rawsock, &mut send_buf, packets.clone(), dst)?;
+
+    loop {
         // select return will clear all bit but the ready bit
-        // FD_ZERO(&mut readfd);
+        FD_ZERO(&mut readfd);
         FD_SET(rawsock, &mut readfd);
         // select modifed the timeval (pselect copy)
         let mut timeout: timeval = timeval {
             tv_sec: 2,
             tv_usec: 0,
-        };  // set 200ms timeout
+        }; // set 200ms timeout
         let ret = select(
             rawsock + 1,
             &mut readfd,
@@ -251,37 +297,60 @@ unsafe fn icmp_recv(
             &mut timeout,
         );
 
-        // 0 timeout, -1 errors
+        // -1 errors, 0 timeout
+        if ret == -1 || ret == 0 {
+            if ret == -1 {
+                eprintln!("select error");
+                if init_signal_arrived.load(Ordering::Relaxed) {
+                    break;
+                } else {
+                    continue;
+                }
+            } else {
+                eprintln!("timeout");
+                if init_signal_arrived.load(Ordering::Relaxed) {
+                    break;
+                }
+                else {
+                    ping_once(rawsock, &mut send_buf, packets.clone(), dst)?;
+                    continue;
+                }
+            }
 
-        if ret == -1 {
-            eprintln!("select error");
-            continue;
         }
-
-        if ret == 0 {
-            eprintln!("select timeout");
-            continue;
-        }
-        println!("select notified");
 
         let size = recv(
             rawsock,
             recv_buf.as_mut_ptr() as *mut c_void,
             recv_buf.len(),
             0,
+            // &mut dst as *mut sockaddr_in as *mut sockaddr,
+            // &mut size_of::<sockaddr_in>() as *mut usize as *mut u32
         );
 
         if *__errno_location() == EINTR {
             eprintln!("recvfrom error");
-            continue;
+            if init_signal_arrived.load(Ordering::Relaxed) {
+                break;
+            } else {
+                continue;
+            }
         }
 
         debug_assert!(size > 0);
-        // println!("recvd -> unpack");
-        if icmp_unpack(&mut recv_buf[..size as usize], packets.clone()).is_ok()
-        {
-            break;
+        match icmp_unpack(&mut recv_buf[..size as usize], packets.clone())? {
+            UnpackRes::Succcess => {},
+            UnpackRes::Retry => {
+                continue;
+            },
         }
+
+        if init_signal_arrived.load(Ordering::Relaxed) {
+            break;
+        } else {
+            sleep(Duration::new(0, 500_000_000));
+        }
+        ping_once(rawsock, &mut send_buf, packets.clone(), dst)?;
     }
 
     Ok(())
@@ -293,7 +362,7 @@ fn statistics(dst: Ipv4Addr, packets: Arc<Mutex<Vec<PingPacket>>>) {
 
     let packets_guard = packets.lock().unwrap();
 
-    let mut packets_sent = 0;
+    let packets_sent = packets_guard.len();
     let mut packets_received = 0;
 
     let pingstart = packets_guard[0].sent_time;
@@ -303,20 +372,17 @@ fn statistics(dst: Ipv4Addr, packets: Arc<Mutex<Vec<PingPacket>>>) {
     for packet in packets_guard.iter() {
         if packet.received {
             packets_received += 1;
-        } else {
-            packets_sent += 1;
         }
     }
 
     println!(
-        "{} packets transmitted, {} received, {}% packet loss, time: {} ms",
+        "{} packets transmitted, {} received, {}% packet loss, time: {:.3} ms",
         packets_sent,
         packets_received,
         (packets_sent - packets_received) * 100 / packets_sent,
         time.as_millis()
     )
 }
-
 
 impl PingPacket {
     fn new(seq: u16) -> Self {
@@ -333,12 +399,6 @@ impl PingPacket {
 //// Cli
 
 struct HostOrIPv4(Either<Ipv4Addr, String>);
-
-// union HostOrIPv4 {
-//     ip: Ipv4Addr,
-//     hostname: std::mem::ManuallyDrop<String>
-// }
-
 
 impl FromStr for HostOrIPv4 {
     type Err = Box<dyn Error>;
@@ -398,13 +458,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let dst = cli.dst;
 
-    // println!("ping to {:?}", dst);
-
     unsafe {
         let hostorip = HostOrIPv4::from_str(&dst)?;
 
         let dst: Ipv4Addr = hostorip.try_into()?;
-        let cdst = transmute::<SockAddrIn, sockaddr_in>(SockAddrIn::from(dst));
+        let mut cdst = transmute::<SockAddrIn, sockaddr_in>(SockAddrIn::from(dst));
 
         let rawsock = socket(AF_INET, SOCK_RAW, Protocol::ICMP as i32);
 
@@ -421,6 +479,42 @@ fn main() -> Result<(), Box<dyn Error>> {
             size_of::<i32>() as u32,
         );
 
+        // enable the outcoming interface multicasting
+        setsockopt(
+            rawsock,
+            IPPROTO_IP,
+            IP_MULTICAST_IF,
+            &mut cdst as *mut sockaddr_in as *mut c_void,
+            size_of::<sockaddr_in>() as u32,
+        );
+
+        // enable broadcast pings
+        setsockopt(
+            rawsock,
+            SOL_SOCKET,
+            SO_BROADCAST,
+            &size as *const i32 as *const c_void,
+            size_of::<i32>() as u32,
+        );
+
+        // seconds
+        let ttl = 200u8;
+        // set TTL
+        setsockopt(
+            rawsock,
+            IPPROTO_IP,
+            IP_TTL,
+            &ttl as *const u8 as *const c_void,
+            size_of::<u8>() as u32,
+        );
+        setsockopt(
+            rawsock,
+            IPPROTO_IP,
+            IP_MULTICAST_TTL,
+            &ttl as *const u8 as *const c_void,
+            size_of::<u8>() as u32,
+        );
+
         let init_signal_arrived = Arc::new(AtomicBool::new(false));
         register(consts::SIGINT, init_signal_arrived.clone())?;
 
@@ -428,19 +522,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let packets = Arc::new(Mutex::new(Vec::new()));
 
-        let packets_send = packets.clone();
-        let init_signal_arrived_send = init_signal_arrived.clone();
+        // let packets_send = packets.clone();
+        // let init_signal_arrived_send = init_signal_arrived.clone();
 
-        let thd_send = thread::Builder::new()
-            .name("child-send".to_owned())
-            .spawn(move || {
-                icmp_send(
-                    rawsock,
-                    cdst,
-                    packets_send,
-                    init_signal_arrived_send,
-                )
-            })?;
+        // let thd_send = thread::Builder::new()
+        //     .name("child-send".to_owned())
+        //     .spawn(move || {
+        //         icmp_send(
+        //             rawsock,
+        //             cdst,
+        //             packets_send,
+        //             init_signal_arrived_send,
+        //         )
+        //     })?;
 
         let packets_recv = packets.clone();
         let init_signal_arrived_recv = init_signal_arrived.clone();
@@ -448,10 +542,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         let thd_recv = thread::Builder::new()
             .name("child-recv".to_owned())
             .spawn(move || {
-                icmp_recv(rawsock, packets_recv, init_signal_arrived_recv)
+                ping_recv_loop(
+                    rawsock,
+                    packets_recv,
+                    cdst,
+                    init_signal_arrived_recv,
+                )
             })?;
 
-        thd_send.join().unwrap()?;
         thd_recv.join().unwrap()?;
 
         statistics(dst, packets)
@@ -467,13 +565,13 @@ mod tests {
         ffi::CString,
         fmt::Debug,
         mem::{zeroed, MaybeUninit},
-        ptr::{null, null_mut},
+        ptr::{null, null_mut}, time::Instant,
     };
 
     use dns_lookup::getaddrinfo;
     use libc::{addrinfo, fd_set, gai_strerror, FD_ISSET, FD_SET, FD_ZERO};
     use netlib::cstr;
-
+    use chrono::{Local, Duration};
 
     #[test]
     fn test_fdset() {
@@ -492,18 +590,6 @@ mod tests {
 
     #[test]
     fn test_getaddrinfo() {
-        // unsafe {
-        //     // let mut res: *mut addrinfo = null_mut();
-
-        //     // let s = getaddrinfo(cstr!("baidu2.com"), null(), null(), &mut res);
-        //     // if s != 0 {
-        //     //     eprintln!("getaddrinfo: {:?}", gai_strerror(s))
-        //     // }
-        //     // else {
-        //     //     println!("getaddrinfo: {:?}", (*(*res).ai_addr) );
-        //     // }
-
-        // }
         let hostname = "baidu.com";
 
         let sockets = getaddrinfo(Some(hostname), None, None)
@@ -529,7 +615,16 @@ mod tests {
 
         let n4: u8 = 123;
         println!("{}", ((n4 as u16) << 8) as u16 & 0xff00)
+    }
 
+    #[test]
+    fn test_timestamp() {
+        let now = Local::now();
+        let midnight = Local::today().and_hms(0, 0, 0);
+
+        let timestamp = now.signed_duration_since(midnight);
+
+        println!("timestamp (from midnight): {:#?}", timestamp.num_milliseconds());
     }
 
 }

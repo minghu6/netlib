@@ -3,6 +3,8 @@ use std::error::Error;
 use getset::{ CopyGetters, Setters };
 use serde::{ Deserialize, Serialize };
 
+use crate::aux::{htons, ntohs};
+
 pub use super::icmp_spec::*;
 
 
@@ -29,29 +31,6 @@ pub struct ICMP {
 //// Implements
 
 impl ICMP {
-
-    /// CRC16
-    pub unsafe fn calc_cksum(mut data: *const u8, mut len: u32) -> u16 {
-        let mut sum = 0u32;
-        let is_odd = len & 0x1 > 0;
-
-        // sum every two bytes
-        while len & 0xfffe > 0 {
-            sum += *(data as *const u16) as u32;
-            data = data.add(2);
-            len -= 2;
-        }
-
-        // add the last one byte for odd len
-        if is_odd {
-            sum += (((*data as u16) << 8) & 0xff00) as u32;
-        }
-
-        sum = (sum >> 16) + (sum & 0xffff);
-        sum += sum >> 16;
-
-        !(sum as u16)
-    }
 
     // pub unsafe fn calc_cksum(mut data: *const u8, mut len: u32) -> u16 {
     //     let mut cksum = 0u16;
@@ -87,14 +66,20 @@ impl ICMP {
     /// Set echo struct of union
     ///
     /// id: pid
+    ///
     /// seq: sequence id
     pub fn un_as_echo(id: u16, seq: u16) -> u32 {
-        id as u32 + (seq as u32) << 16
+        unsafe {
+            htons(id) as u32 | (htons(seq) as u32) << 16
+        }
     }
 
     /// -> (id, seq)
     pub fn get_idseq(&self) -> (u16, u16) {
-        ((self.un & 0xffff) as u16, (self.un >> 16) as u16)
+       unsafe {(
+        ntohs((self.un & 0xffff) as u16),
+        ntohs((self.un >> 16) as u16)
+       )}
     }
 
 }
@@ -102,17 +87,30 @@ impl ICMP {
 
 #[cfg(test)]
 mod tests {
+    use crate::network::icmp::ICMPType;
+
     use super::ICMP;
 
-
     #[test]
-    fn test_crc16() {
-        unsafe {
-            let input = [0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-            let cksum = ICMP::calc_cksum(input.as_ptr(), input.len() as u32);
+    fn test_icmp_un() {
+        let ty: u8 = ICMPType::EchoRequest.into();
+        let code = 0;
+        let cksum = 0;
+        let id = 12345;
+        let seq = 0;
+        let un = ICMP::un_as_echo((id & 0xffff) as u16, seq);
 
-            println!("cksum: {:0X} {:0X}", cksum & 0x00ff, (cksum >> 8) & 0x00ff);
-        }
+        let icmp = ICMP {
+            ty,
+            code,
+            cksum,
+            un,
+        };
+
+        let (gid, gseq) = icmp.get_idseq();
+
+        println!("id: {}, seq: {}", id, seq);
+        println!("gid: {}, gseq: {}", gid, gseq);
 
     }
 }

@@ -3,6 +3,8 @@
 
 use std::net::Ipv4Addr;
 
+use crate::aux::htonl;
+
 /// Synonym libc::sockaddr_in
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -38,7 +40,7 @@ impl From<Ipv4Addr> for SockAddrIn {
         Self {
             family: SAFamily::Inet,
             port: 0,
-            addr: ipv4.into(),
+            addr: unsafe { htonl(ipv4.into()) },
             zero_pading: [0; 8],
         }
     }
@@ -48,12 +50,13 @@ impl From<Ipv4Addr> for SockAddrIn {
 #[allow(unused_imports)]
 #[cfg(test)]
 mod tests {
-    use std::{mem::size_of, net::Ipv4Addr, mem::transmute};
+    use std::{mem::size_of, net::Ipv4Addr, mem::transmute, ffi::{CString, CStr}};
 
-    use libc::{c_void, socklen_t, c_int, hostent, sockaddr_in, AF_INET,};
+    use libc::{c_void, socklen_t, c_int, hostent, sockaddr_in, AF_INET, free};
 
-    use crate::data::{SockAddrIn, SAFamily};
+    use crate::{data::{SockAddrIn, SAFamily}, aux::{inet_addr, inet_ntoa, htonl}};
 
+    #[allow(unused)]
     extern "C" {
         fn gethostbyaddr(addr: *const c_void, len: socklen_t, ty: c_int) -> *mut hostent;
         fn __h_errno_location() -> *mut c_int;
@@ -73,32 +76,41 @@ mod tests {
             let sockaddr2 = sockaddr_in {
                 sin_family: AF_INET as u16,
                 sin_port: 0,
-                sin_addr: libc::in_addr { s_addr: ipv4.into() },
+                sin_addr: libc::in_addr { s_addr: htonl(ipv4.into()) },
                 sin_zero: [0; 8],
             };
 
             assert_eq!(sockaddr1, sockaddr2);
 
-            let htent = gethostbyaddr(
-                &sockaddr2 as *const sockaddr_in as *const c_void,
-                size_of::<sockaddr_in>() as u32,
-                AF_INET
+            let caddrs_ptr = inet_ntoa(libc::in_addr { s_addr: ipv4.into() });
+            let caddrs = CStr::from_ptr(
+                caddrs_ptr
             );
+            let addrs = caddrs.to_str().unwrap();
+            println!("{}", addrs);
 
-            if htent.is_null() {
-                eprintln!("htent is null");
-                let herrno = *__h_errno_location();
-                // # define HOST_NOT_FOUND	1	/* Authoritative Answer Host not found.  */
-                // # define TRY_AGAIN	2	/* Non-Authoritative Host not found,
-                //                 or SERVERFAIL.  */
-                // # define NO_RECOVERY	3	/* Non recoverable errors, FORMERR, REFUSED,
-                //                 NOTIMP.  */
-                // # define NO_DATA	4
-                eprintln!("herrno: {}", herrno);
-            }
-            else {
-                println!("{:#?}", &*htent)
-            }
+            // free(caddrs_ptr as *mut c_void);
+
+            // let htent = gethostbyaddr(
+            //     &sockaddr2 as *const sockaddr_in as *const c_void,
+            //     size_of::<sockaddr_in>() as u32,
+            //     AF_INET
+            // );
+
+            // if htent.is_null() {
+            //     eprintln!("htent is null");
+            //     let herrno = *__h_errno_location();
+            //     // # define HOST_NOT_FOUND	1	/* Authoritative Answer Host not found.  */
+            //     // # define TRY_AGAIN	2	/* Non-Authoritative Host not found,
+            //     //                 or SERVERFAIL.  */
+            //     // # define NO_RECOVERY	3	/* Non recoverable errors, FORMERR, REFUSED,
+            //     //                 NOTIMP.  */
+            //     // # define NO_DATA	4
+            //     eprintln!("herrno: {}", herrno);
+            // }
+            // else {
+            //     println!("{:#?}", &*htent)
+            // }
 
         }
 

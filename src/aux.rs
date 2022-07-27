@@ -1,4 +1,9 @@
 
+////////////////////////////////////////////////////////////////////////////////
+//// Macros
+
+use libc::{c_char, in_addr_t, in_addr};
+
 /// use bincode::{ Options, options };
 #[macro_export]
 macro_rules! bincode_options {
@@ -53,3 +58,19 @@ macro_rules! cstr {
 pub trait From2<T> {
     fn from2(_: T) -> Self;
 }
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// Extern Reference (POSIX)
+
+
+extern "C" {
+    pub fn htons(hostshort: u16) -> u16;
+    pub fn ntohs(netshort: u16) -> u16;
+    pub fn htonl(hostlong: u32) -> u32;
+    pub fn ntohl(netlong: u32) -> u32;
+    pub fn inet_addr(cp: *const c_char) -> in_addr_t;
+    pub fn inet_ntoa(r#in: in_addr) -> *mut c_char;
+}
+

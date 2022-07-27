@@ -3,6 +3,7 @@ use std::net::Ipv4Addr;
 use getset::CopyGetters;
 use serde::Deserialize;
 
+use crate::aux::ntohs;
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Data Struct
@@ -11,40 +12,39 @@ use serde::Deserialize;
 /// Or IPHdr (Linux Specified) IPv4 Header
 #[repr(C)]
 #[derive(CopyGetters, Default, Deserialize, Debug)]
-#[getset(get_copy = "pub")]
 pub struct IP {
     /// ip header len (or internet header length, low 4 bit) and version (high 4 bit)
     ///
     /// ip header: using unit word = 32bit, value 5 is most common cases in real life
     /// means that 5 x 32 = 20 x 8, 20 bytes, and therefore no options.
     /// options field itself can be of maximum 40 bytes, (ihl while be 15 = 60bytes)
-    ihl_v: u8,
+    pub ihl_v: u8,
 
     /// type of service
-    tos: u8,
+    pub tos: u8,
 
     /// the datagram length.
     ///
     /// the max value are 65536 bytes theoretically, typically however,
     /// the largest size is 1500 bytes.
-    len: u16,
+    pub len: u16,
 
     /// packet id, help in the reassembly of packets.
-    id: u16,
+    pub id: u16,
 
     /// fregment offset of the packet in the data stream
-    frag_off: u16,
+    pub frag_off: u16,
 
     /// time to live
-    ttl: u8,
+    pub ttl: u8,
 
-    protocol: u8,
+    pub protocol: u8,
 
     /// IP header checksum
-    checksum: u16,
+    pub checksum: u16,
 
-    ip_src: u32,
-    ip_dst: u32,
+    pub ip_src: u32,
+    pub ip_dst: u32,
 
     // Options start here ...
 }
@@ -599,6 +599,7 @@ pub enum Protocol {
     Test253,
     Test254,
 
+    /// or Raw
     Reserved = 0xFF
 }
 
@@ -665,6 +666,10 @@ impl IP {
 
     pub fn get_dst_ip(&self) -> Ipv4Addr {
         Ipv4Addr::from(self.ip_dst)
+    }
+
+    pub fn get_packet_len(&self) -> usize {
+        unsafe { ntohs(self.len) as usize }
     }
 
 }
