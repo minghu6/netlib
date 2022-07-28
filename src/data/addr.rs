@@ -3,11 +3,11 @@
 
 use std::net::Ipv4Addr;
 
-use crate::aux::htonl;
+use crate::aux::{htonl, ntohl, ntohs};
 
 /// Synonym libc::sockaddr_in
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct SockAddrIn {
     family: SAFamily,
     port: u16,
@@ -42,6 +42,18 @@ impl From<Ipv4Addr> for SockAddrIn {
             port: 0,
             addr: unsafe { htonl(ipv4.into()) },
             zero_pading: [0; 8],
+        }
+    }
+}
+
+impl std::fmt::Debug for SockAddrIn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        unsafe {
+            f.debug_struct("SockAddrIn")
+            .field("family", &self.family)
+            .field("port", &ntohs(self.port))
+            .field("addr", &Ipv4Addr::from(ntohl(self.addr)))
+            .finish()
         }
     }
 }

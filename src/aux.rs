@@ -2,6 +2,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// Macros
 
+use std::{net::Ipv4Addr, str::FromStr, error::Error, cell::RefCell};
+
+use either::Either;
 use libc::{c_char, in_addr_t, in_addr};
 
 /// use bincode::{ Options, options };
@@ -74,3 +77,78 @@ extern "C" {
     pub fn inet_ntoa(r#in: in_addr) -> *mut c_char;
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+//// CLI
+
+defe! {
+    pub enum CliError {
+        ParseInAddrFailed(String),
+        UnresolvedHost(String)
+    }
+}
+
+pub struct HostOrIPv4(Either<Ipv4Addr, String>);
+
+impl FromStr for HostOrIPv4 {
+    type Err = Box<dyn Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(c) = s.chars().next() {
+            Ok(if c.is_digit(10) {
+                HostOrIPv4(Either::Left(Ipv4Addr::from_str(s)?))
+            } else {
+                HostOrIPv4(Either::Right(s.to_owned()))
+            })
+        } else {
+            Err(box CliError::ParseInAddrFailed("".to_string()))
+        }
+    }
+}
+
+impl TryInto<Ipv4Addr> for HostOrIPv4 {
+    type Error = Box<dyn Error>;
+
+    fn try_into(self) -> Result<Ipv4Addr, Self::Error> {
+        Ok(match self.0 {
+            Either::Left(ip) => ip,
+            Either::Right(hostname) => {
+                let addrs =
+                    dns_lookup::getaddrinfo(Some(&hostname), None, None)
+                        .or_else(|_lkerr| {
+                            Err(box CliError::UnresolvedHost(hostname))
+                        })?
+                        .collect::<std::io::Result<Vec<_>>>()
+                        .unwrap();
+
+                let addr1st = &addrs[0];
+
+                match addr1st.sockaddr.ip() {
+                    std::net::IpAddr::V4(ip) => ip,
+                    std::net::IpAddr::V6(_) => unreachable!(),
+                }
+            }
+        })
+    }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// Helper Function
+
+pub fn software_random() -> usize {
+    #[allow(unused_imports)]
+    use rand;
+    #[allow(unused_imports)]
+    use rand::Rng;
+
+    thread_local! {
+        static RNG: RefCell<rand::rngs::ThreadRng>  = RefCell::new(rand::thread_rng());
+    }
+
+    RNG.with(|rngcell| rngcell.borrow_mut().gen::<usize>())
+}
+
+pub fn random() -> usize {
+    software_random()
+}

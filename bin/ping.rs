@@ -1,38 +1,36 @@
 #![feature(box_syntax)]
-#![allow(unused_imports)]
 
-use std::error::Error;
-use std::ffi::CString;
-use std::mem::{size_of, transmute, zeroed, MaybeUninit};
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use std::os::raw;
-use std::ptr::{self, null, null_mut, slice_from_raw_parts};
-use std::str::FromStr;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
-use std::thread::{self, sleep, Thread};
-use std::time::{Duration, Instant};
+use std::{
+    error::Error,
+    mem::{size_of, transmute, zeroed},
+    net::Ipv4Addr,
+    ptr::null_mut,
+    str::FromStr,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    thread::{self, sleep},
+    time::{Duration, Instant},
+};
 
 use bincode::{options, Options};
 use clap::Parser;
-use either::Either;
 use libc::{
-    __errno_location, alarm, c_void, exit, fd_set, getpid, getprotobyname,
-    printf, pthread_exit, recv, recvfrom, select, sendto, setsockopt, signal,
+    __errno_location, c_void, fd_set, getpid, recv, select, sendto, setsockopt,
     sockaddr, sockaddr_in, socket, timeval, AF_INET, EINTR, FD_SET, FD_ZERO,
-    IPPROTO_IP, IPPROTO_IPIP, IP_MULTICAST_IF, PT_NULL, SIGALRM, SIGINT,
-    SOCK_RAW, SOL_SOCKET, SO_BROADCAST, SO_RCVBUF, IP_TTL, IP_MULTICAST_TTL,
+    IPPROTO_IP, IP_MULTICAST_IF, IP_MULTICAST_TTL, IP_TTL, SOCK_RAW, SOL_SOCKET, SO_BROADCAST, SO_RCVBUF,
 };
-use netlib::data::SockAddrIn;
-use netlib::network::inet_cksum;
-use netlib::network::ip::Protocol;
-use netlib::{__item, cstr, defe};
 use netlib::{
-    aux::From2,
+    __item,
+    aux::HostOrIPv4,
     bincode_options,
+    data::SockAddrIn,
+    defe,
     network::{
         icmp::{ICMPType, ICMP},
-        ip::IP,
+        inet_cksum,
+        ip::{Protocol, IP},
     },
 };
 use signal_hook::consts;
@@ -51,10 +49,6 @@ defe! {
         UnresolvedHost(String),
         MMPoisonError,
         DeserializeFailed
-    }
-
-    pub enum CliError {
-        ParseInAddrFailed(String)
     }
 }
 
@@ -93,7 +87,7 @@ pub struct PingPacket {
 
 enum UnpackRes {
     Succcess,
-    Retry
+    Retry,
 }
 
 
@@ -116,7 +110,11 @@ fn icmp_pack(buf: &mut [u8], seq: u16, icmp_packet_len: u8) {
         un,
     };
 
-    println!("pack icmp id: {}, seq: {:0x}", icmp.get_idseq().0, icmp.get_idseq().1);
+    println!(
+        "pack icmp id: {}, seq: {:0x}",
+        icmp.get_idseq().0,
+        icmp.get_idseq().1
+    );
 
     config
         .serialize_into(&mut buf[..size_of::<ICMP>()], &icmp)
@@ -126,7 +124,7 @@ fn icmp_pack(buf: &mut [u8], seq: u16, icmp_packet_len: u8) {
     // }
 
     icmp.cksum =
-        unsafe { inet_cksum(buf.as_mut_ptr(), icmp_packet_len as u32) };
+        unsafe { inet_cksum(buf.as_mut_ptr(), icmp_packet_len as usize) };
 
     config
         .serialize_into(&mut buf[..size_of::<ICMP>()], &icmp)
@@ -198,11 +196,10 @@ unsafe fn icmp_unpack(
     // println!("reply seq: {:0x}, id: {:0x}, pid: {:0x}", seq, id, pid);
 
     let icmp_type = icmphdr
-    .parse_cm_type()
-    .or_else(|_err| Err(PingError::DeserializeFailed))?;
+        .parse_cm_type()
+        .or_else(|_err| Err(PingError::DeserializeFailed))?;
 
-    if icmp_type == ICMPType::EchoReply && id == (pid & 0xffff) as u16
-    {
+    if icmp_type == ICMPType::EchoReply && id == (pid & 0xffff) as u16 {
         match packets.lock() {
             Ok(mut packets_guard) => {
                 let packet = get_packet_mut!(packets_guard, seq)?;
@@ -226,8 +223,7 @@ unsafe fn icmp_unpack(
             // 这个结构设计得，不能直接返回，真的不太行
             Err(_err) => unreachable!(),
         }
-    }
-    else {
+    } else {
         return Ok(UnpackRes::Retry);
     }
     // else just return
@@ -277,7 +273,7 @@ unsafe fn ping_recv_loop(
     let mut recv_buf = [0u8; 2 * 1024];
     let mut readfd: fd_set = zeroed(); // bits map
 
-    let mut send_buf = [0u8; 68];  // 56 + 8 + 4
+    let mut send_buf = [0u8; 68]; // 56 + 8 + 4
     ping_once(rawsock, &mut send_buf, packets.clone(), dst)?;
 
     loop {
@@ -310,13 +306,11 @@ unsafe fn ping_recv_loop(
                 eprintln!("timeout");
                 if init_signal_arrived.load(Ordering::Relaxed) {
                     break;
-                }
-                else {
+                } else {
                     ping_once(rawsock, &mut send_buf, packets.clone(), dst)?;
                     continue;
                 }
             }
-
         }
 
         let size = recv(
@@ -339,10 +333,10 @@ unsafe fn ping_recv_loop(
 
         debug_assert!(size > 0);
         match icmp_unpack(&mut recv_buf[..size as usize], packets.clone())? {
-            UnpackRes::Succcess => {},
+            UnpackRes::Succcess => {}
             UnpackRes::Retry => {
                 continue;
-            },
+            }
         }
 
         if init_signal_arrived.load(Ordering::Relaxed) {
@@ -398,51 +392,6 @@ impl PingPacket {
 ////////////////////////////////////////////////////////////////////////////////
 //// Cli
 
-struct HostOrIPv4(Either<Ipv4Addr, String>);
-
-impl FromStr for HostOrIPv4 {
-    type Err = Box<dyn Error>;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Some(c) = s.chars().next() {
-            Ok(if c.is_digit(10) {
-                HostOrIPv4(Either::Left(Ipv4Addr::from_str(s)?))
-            } else {
-                HostOrIPv4(Either::Right(s.to_owned()))
-            })
-        } else {
-            Err(box CliError::ParseInAddrFailed("".to_string()))
-        }
-    }
-}
-
-impl TryInto<Ipv4Addr> for HostOrIPv4 {
-    type Error = Box<dyn Error>;
-
-    fn try_into(self) -> Result<Ipv4Addr, Self::Error> {
-        Ok(match self.0 {
-            Either::Left(ip) => ip,
-            Either::Right(hostname) => {
-                let addrs =
-                    dns_lookup::getaddrinfo(Some(&hostname), None, None)
-                        .or_else(|_lkerr| {
-                            Err(box PingError::UnresolvedHost(hostname))
-                        })?
-                        .collect::<std::io::Result<Vec<_>>>()
-                        .unwrap();
-
-                let addr1st = &addrs[0];
-
-                match addr1st.sockaddr.ip() {
-                    std::net::IpAddr::V4(ip) => ip,
-                    std::net::IpAddr::V6(_) => unreachable!(),
-                }
-            }
-        })
-    }
-}
-
-
 
 #[derive(Parser)]
 #[clap()]
@@ -450,7 +399,6 @@ struct Cli {
     #[clap()]
     dst: String,
 }
-
 
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -462,7 +410,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         let hostorip = HostOrIPv4::from_str(&dst)?;
 
         let dst: Ipv4Addr = hostorip.try_into()?;
-        let mut cdst = transmute::<SockAddrIn, sockaddr_in>(SockAddrIn::from(dst));
+        let mut cdst =
+            transmute::<SockAddrIn, sockaddr_in>(SockAddrIn::from(dst));
 
         let rawsock = socket(AF_INET, SOCK_RAW, Protocol::ICMP as i32);
 
@@ -561,17 +510,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        ffi::CString,
-        fmt::Debug,
-        mem::{zeroed, MaybeUninit},
-        ptr::{null, null_mut}, time::Instant,
-    };
+    use std::mem::MaybeUninit;
 
+    use chrono::Local;
     use dns_lookup::getaddrinfo;
-    use libc::{addrinfo, fd_set, gai_strerror, FD_ISSET, FD_SET, FD_ZERO};
-    use netlib::cstr;
-    use chrono::{Local, Duration};
+    use libc::{ fd_set, FD_ISSET, FD_SET};
 
     #[test]
     fn test_fdset() {
@@ -624,7 +567,9 @@ mod tests {
 
         let timestamp = now.signed_duration_since(midnight);
 
-        println!("timestamp (from midnight): {:#?}", timestamp.num_milliseconds());
+        println!(
+            "timestamp (from midnight): {:#?}",
+            timestamp.num_milliseconds()
+        );
     }
-
 }

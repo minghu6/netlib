@@ -1,17 +1,13 @@
-use std::fmt::Display;
+use crate::{ defe, __item };
 
 
 
-#[derive(Debug)]
-pub enum NetError {
-    InvalidParam
-}
-
-impl Display for NetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#?}", self)
+defe! {
+    pub enum NetError {
+        InvalidParam,
+        CreateRawSocketFailed,
+        DeserializeFailed,
+        SerializeFailed,
+        SendToFailed
     }
 }
-
-impl std::error::Error for NetError {}
-

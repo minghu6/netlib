@@ -9,7 +9,10 @@ mod icmp_spec;
 use libc::in_addr;
 
 
-pub unsafe fn inet_cksum(mut data: *const u8, mut len: u32) -> u16 {
+pub unsafe fn inet_cksum(mut data: *const u8, mut len: usize) -> u16 {
+    // let mut data = data;
+    // let mut len = len;
+
     let mut sum = 0u32;
     let is_odd = len & 0x1 > 0;
 
@@ -49,7 +52,7 @@ mod tests {
     fn test_cksum() {
         unsafe {
             let input = [0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-            let cksum = inet_cksum(input.as_ptr(), input.len() as u32);
+            let cksum = inet_cksum(input.as_ptr(), input.len());
 
             println!("cksum: {:0X} {:0X}", cksum & 0x00ff, (cksum >> 8) & 0x00ff);
         }

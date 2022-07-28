@@ -12,3 +12,7 @@ test_ping:
 	# @ sudo ./target/debug/ping localhost
 
 
+test_dos_icmp:
+	@ cargo build --bin dos_icmp
+	# @ sudo ./target/debug/dos_icmp baidu.com
+	@ sudo ./target/debug/dos_icmp 110.242.68.66

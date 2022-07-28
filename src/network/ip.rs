@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use getset::CopyGetters;
-use serde::Deserialize;
+use serde::{ Deserialize, Serialize };
 
 use crate::aux::ntohs;
 
@@ -11,7 +11,7 @@ use crate::aux::ntohs;
 
 /// Or IPHdr (Linux Specified) IPv4 Header
 #[repr(C)]
-#[derive(CopyGetters, Default, Deserialize, Debug)]
+#[derive(CopyGetters, Default, Deserialize, Serialize, Debug)]
 pub struct IP {
     /// ip header len (or internet header length, low 4 bit) and version (high 4 bit)
     ///
@@ -639,9 +639,28 @@ impl From<u8> for Protocol {
 
 impl IP {
 
+    /// v default 4
+    pub fn ihl_v(ihl: u8, v: u8) -> u8 {
+        if cfg!(target_endian="little") {
+             ihl | (v << 4)
+        }
+        else {
+            debug_assert!(cfg!(target_endian="big"));
+
+            (ihl << 4) | v
+        }
+    }
+
     /// number of word (4 bytes)
     pub fn get_ihl(&self) -> u8 {
-        self.ihl_v & 0x0F
+        if cfg!(target_endian="little") {
+            self.ihl_v & 0x0F
+        }
+       else {
+           debug_assert!(cfg!(target_endian="big"));
+
+           self.ihl_v >> 4
+       }
     }
 
     pub fn get_hdrsize(&self) -> usize {
@@ -649,7 +668,14 @@ impl IP {
     }
 
     pub fn get_version(&self) -> u8 {
-        self.ihl_v & 0xF0
+        if cfg!(target_endian="little") {
+            self.ihl_v >> 4
+        }
+        else {
+           debug_assert!(cfg!(target_endian="big"));
+
+           self.ihl_v & 0x0F
+       }
     }
 
     pub fn get_tos(&self) -> ToS {
