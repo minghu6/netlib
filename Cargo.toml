@@ -21,6 +21,7 @@ crossbeam-channel = "0.5"
 signal-hook = "0.3.14"
 chrono = "0.4"
 rand = "0.8.5"
+maplit = "0.1.2"
 
 clap = { version = "^3", features = ["derive"] }
 clap_complete = "3.1.1"
@@ -28,8 +29,8 @@ shellexpand = "2.1"
 
 
 [[bin]]
-name="tcp_server_test0"
-path="bin/tcp_server_test0.rs"
+name="tcp_server_r0"
+path="bin/tcp_server_r0.rs"
 
 [[bin]]
 name = "ping"
@@ -38,3 +39,16 @@ path = "bin/ping.rs"
 [[bin]]
 name = "dos_icmp"
 path = "bin/dos_icmp.rs"
+
+[[bin]]
+name = "dos_tcp"
+path = "bin/dos_tcp.rs"
+
+[[bin]]
+name="tcp_client_r0"
+path="bin/tcp_client_r0.rs"
+
+[[bin]]
+name="tcp_client_c0"
+path="bin/tcp_client_c0.rs"
+

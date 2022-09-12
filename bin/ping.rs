@@ -2,7 +2,7 @@
 
 use std::{
     error::Error,
-    mem::{size_of, transmute, zeroed},
+    mem::{size_of, zeroed},
     net::Ipv4Addr,
     ptr::null_mut,
     str::FromStr,
@@ -22,7 +22,6 @@ use libc::{
     IPPROTO_IP, IP_MULTICAST_IF, IP_MULTICAST_TTL, IP_TTL, SOCK_RAW, SOL_SOCKET, SO_BROADCAST, SO_RCVBUF,
 };
 use netlib::{
-    __item,
     aux::HostOrIPv4,
     bincode_options,
     data::SockAddrIn,
@@ -110,11 +109,11 @@ fn icmp_pack(buf: &mut [u8], seq: u16, icmp_packet_len: u8) {
         un,
     };
 
-    println!(
-        "pack icmp id: {}, seq: {:0x}",
-        icmp.get_idseq().0,
-        icmp.get_idseq().1
-    );
+    // println!(
+    //     "pack icmp id: {}, seq: {:0x}",
+    //     icmp.get_idseq().0,
+    //     icmp.get_idseq().1
+    // );
 
     config
         .serialize_into(&mut buf[..size_of::<ICMP>()], &icmp)
@@ -183,6 +182,8 @@ unsafe fn icmp_unpack(
         .or_else(|_err| Err(PingError::DeserializeFailed))?;
     // let iphdr: IP = ptr::read (buf.as_ptr() as *const _);
 
+    // println!("fragflag: {:?}, fragoff: {}, raw: {}", iphdr.get_frag_flag(), iphdr.get_frag_off(), iphdr.frag_off);
+
     let iphdr_len = iphdr.get_hdrsize();
 
     let icmphdr: ICMP = config
@@ -194,6 +195,7 @@ unsafe fn icmp_unpack(
 
     // println!("reply type: {:#?}", icmphdr.parse_cm_type());
     // println!("reply seq: {:0x}, id: {:0x}, pid: {:0x}", seq, id, pid);
+    // println!("reply dst: {}", Ipv4Addr::from(ntohl(iphdr.ip_dst)));
 
     let icmp_type = icmphdr
         .parse_cm_type()
@@ -285,6 +287,7 @@ unsafe fn ping_recv_loop(
             tv_sec: 2,
             tv_usec: 0,
         }; // set 200ms timeout
+
         let ret = select(
             rawsock + 1,
             &mut readfd,
@@ -410,8 +413,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let hostorip = HostOrIPv4::from_str(&dst)?;
 
         let dst: Ipv4Addr = hostorip.try_into()?;
-        let mut cdst =
-            transmute::<SockAddrIn, sockaddr_in>(SockAddrIn::from(dst));
+        let mut cdst = SockAddrIn::from(dst).into();
 
         let rawsock = socket(AF_INET, SOCK_RAW, Protocol::ICMP as i32);
 
@@ -510,66 +512,5 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    use std::mem::MaybeUninit;
 
-    use chrono::Local;
-    use dns_lookup::getaddrinfo;
-    use libc::{ fd_set, FD_ISSET, FD_SET};
-
-    #[test]
-    fn test_fdset() {
-        unsafe {
-            // bits map
-            let mut readfd: fd_set = MaybeUninit::uninit().assume_init();
-            let rawsock = 2;
-
-            // FD_ZERO(&mut readfd);
-            FD_SET(rawsock, &mut readfd);
-
-            println!("1 is_set {:?}", FD_ISSET(0, &readfd));
-            println!("2 is_set {:?}", FD_ISSET(rawsock, &readfd));
-        }
-    }
-
-    #[test]
-    fn test_getaddrinfo() {
-        let hostname = "baidu.com";
-
-        let sockets = getaddrinfo(Some(hostname), None, None)
-            .unwrap()
-            .collect::<std::io::Result<Vec<_>>>()
-            .unwrap();
-
-        for socket in sockets {
-            println!("{:?}", socket);
-        }
-    }
-
-    #[test]
-    fn test_shf() {
-        let n = 0u32;
-
-        let n2 = n >> 16 + n;
-
-        println!("{}", n2);
-
-        let n3: u32 = 0xffff_ffff >> 16;
-        println!("{}", n3);
-
-        let n4: u8 = 123;
-        println!("{}", ((n4 as u16) << 8) as u16 & 0xff00)
-    }
-
-    #[test]
-    fn test_timestamp() {
-        let now = Local::now();
-        let midnight = Local::today().and_hms(0, 0, 0);
-
-        let timestamp = now.signed_duration_since(midnight);
-
-        println!(
-            "timestamp (from midnight): {:#?}",
-            timestamp.num_milliseconds()
-        );
-    }
 }

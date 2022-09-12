@@ -1,13 +1,28 @@
-use crate::{ defe, __item };
-
+use crate::defe;
 
 
 defe! {
-    pub enum NetError {
+    pub enum NetErr {
         InvalidParam,
-        CreateRawSocketFailed,
+
         DeserializeFailed,
         SerializeFailed,
-        SendToFailed
+
+        UnresolvedHost(String),
+        MMPoisonError,
+
+        EpollCreateFailed,
+        EpollCtlFailed,
+        EpollWaitFailed,
+
+        CreateRawSocketFailed,
+        GetSockNameFailed,
+        AcceptFailed,
+        SendToFailed,
+        GetIfAddrsFailed,
+        SocketRawFailed,
+        BindFailed,
     }
 }
+
+pub type Result<T> = std::result::Result<T, NetErr>;

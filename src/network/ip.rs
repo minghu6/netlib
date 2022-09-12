@@ -1,9 +1,12 @@
-use std::net::Ipv4Addr;
+use std::{
+    net::Ipv4Addr,
+    ptr::write, mem::transmute
+};
 
 use getset::CopyGetters;
 use serde::{ Deserialize, Serialize };
 
-use crate::aux::ntohs;
+use crate::aux::{ntohs, htons, ntohl};
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Data Struct
@@ -32,7 +35,9 @@ pub struct IP {
     /// packet id, help in the reassembly of packets.
     pub id: u16,
 
-    /// fregment offset of the packet in the data stream
+    /// fragment offset && frag_flag of the packet in the data stream
+    ///
+    /// fragment offset is as units of 8 bytes
     pub frag_off: u16,
 
     /// time to live
@@ -139,6 +144,18 @@ pub enum ECN {
     ///
     /// modify the ECT0 or ETC1 to CE
     CE
+}
+
+/// LSB
+#[repr(u8)]
+#[derive(Debug)]
+pub enum FragFlag {
+    /// 0b010, Don't Fragmentation
+    DF = 0b010,
+    /// 0b001
+    MF = 0b001,
+    /// 0b000, Obey Fragmentation
+    OF = 0b000
 }
 
 
@@ -620,6 +637,12 @@ impl From<u8> for ECN {
     }
 }
 
+impl From<u8> for FragFlag {
+    fn from(val: u8) -> Self {
+        unsafe { std::mem::transmute(val) }
+    }
+}
+
 
 impl ToS {
     pub fn get_ds(&self) -> DS {
@@ -628,6 +651,16 @@ impl ToS {
 
     pub fn get_ecn(&self) -> ECN {
         ECN::from(self.0 & 0x03)
+    }
+
+    pub fn new(ecn: ECN, ds: DS) -> Self {
+        Self(ecn as u8 | ((ds as u8) << 2))
+    }
+}
+
+impl Into<u8> for ToS {
+    fn into(self) -> u8 {
+        unsafe { transmute(self) }
     }
 }
 
@@ -639,6 +672,8 @@ impl From<u8> for Protocol {
 
 impl IP {
 
+    /// ihl default unit of 4 bytes
+    ///
     /// v default 4
     pub fn ihl_v(ihl: u8, v: u8) -> u8 {
         if cfg!(target_endian="little") {
@@ -687,16 +722,62 @@ impl IP {
     }
 
     pub fn get_src_ip(&self) -> Ipv4Addr {
-        Ipv4Addr::from(self.ip_src)
+        Ipv4Addr::from(unsafe { ntohl(self.ip_src) })
     }
 
     pub fn get_dst_ip(&self) -> Ipv4Addr {
-        Ipv4Addr::from(self.ip_dst)
+        Ipv4Addr::from(unsafe { ntohl(self.ip_dst) })
     }
 
     pub fn get_packet_len(&self) -> usize {
         unsafe { ntohs(self.len) as usize }
     }
+
+    pub fn get_frag_flag(&self) -> FragFlag {
+        FragFlag::from(
+            unsafe { ((ntohs(self.frag_off) & 0xE000) >> 13) as u8 }
+        )
+    }
+
+    /// as 8 bytes
+    pub fn get_frag_off(&self) -> u16 {
+        unsafe { ntohs(self.frag_off) & 0x1FFF  }
+    }
+
+    /// as bytes
+    pub fn get_frag_off_size(&self) -> u16 {
+        self.get_frag_off() * 8
+    }
+
+    /// frag_off (x8 bytes) && frag_flag
+    pub fn frag_off(fragflag: FragFlag, off: u16) -> u16 {
+        unsafe {
+            htons((fragflag as u16) << 13 | off)
+        }
+    }
+
+    /// Used for calc checksum for UDP/TCP
+    pub unsafe fn write_pseudo_iphdr(&self, buf: &mut [u8], payload_len: u16) {
+        let mut p = buf.as_mut_ptr();
+
+        write(p as *mut u32, self.ip_src);
+        p = p.add(4);
+
+        write(p as *mut u32, self.ip_dst);
+        p = p.add(4);
+
+        write(p, 0);
+        p = p.add(1);
+
+        // write(p, (htons(self.protocol as u16) >> 8) as u8);
+        // bits order is covered by CPU, which is transparent to user
+        write(p, self.protocol as u8);
+        p = p.add(1);
+
+        write(p as *mut u16, htons(payload_len));
+
+    }
+
 
 }
 
@@ -707,7 +788,7 @@ impl IP {
 mod tests {
     use std::{ptr, mem::size_of};
 
-    use crate::bincode_options;
+    use crate::{bincode_options, aux::htons};
 
     use super::{ DS, Protocol, IP };
     use bincode::{ Options, options };
@@ -739,4 +820,16 @@ mod tests {
         }
 
     }
+
+    #[test]
+    fn test_h_to_n() {
+        unsafe {
+
+            for i in 0..256 {
+                let i2 = (htons(i as u16) >> 8) as u8;
+                println!("{}: {}", i, i2);
+            }
+        }
+    }
+
 }

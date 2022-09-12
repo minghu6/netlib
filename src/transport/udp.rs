@@ -1,18 +1,18 @@
-use getset::CopyGetters;
 
+use serde::{Deserialize, Serialize};
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Data Structure
 
+
 #[repr(C)]
-#[derive(CopyGetters, Debug)]
-#[getset(get_copy = "pub")]
+#[derive(Debug, Deserialize, Serialize,)]
 pub struct UDP {
-    source: u16,
-    dest: u16,
-    len: u16,
-    checksum: u16
+    pub source: u16,
+    pub dest: u16,
+    pub len: u16,
+    pub checksum: u16
 }
 
 

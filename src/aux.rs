@@ -34,7 +34,7 @@ macro_rules! defe {
     //     compile_error!("unions cannot derive extra traits, use s_no_extra_traits instead");
     // );
     (it: $(#[$attr:meta])* pub $t:ident $i:ident { $($field:tt)* }) => (
-        __item! {
+        $crate::__item! {
             #[derive(Debug)]
             $(#[$attr])*
             pub $t $i { $($field)* }
@@ -50,17 +50,57 @@ macro_rules! defe {
 }
 
 #[macro_export]
+macro_rules! defraw {
+    ($($(#[$attr:meta])* pub $t:ident $i:ident { $($field:tt)* })*) => ($(
+        defraw!(it: $(#[$attr])* pub $t $i { $($field)* });
+    )*);
+    (it: $(#[$attr:meta])* pub union $i:ident { $($field:tt)* }) => (
+        compile_error!("unions cannot derive extra traits, use s_no_extra_traits instead");
+    );
+    (it: $(#[$attr:meta])* pub struct $i:ident { $($field:tt)* }) => (
+        $crate::__item! {
+            #[derive(Debug)]
+            #[repr(C)]
+            #[cfg_attr(feature = "extra_traits", derive(Debug, Eq, Hash, PartialEq))]
+            #[allow(deprecated, non_camel_case_types)]
+            $(#[$attr])*
+            pub struct $i { $($field)* }
+        }
+        #[allow(deprecated)]
+        impl Copy for $i {}
+        #[allow(deprecated)]
+        impl Clone for $i {
+            fn clone(&self) -> $i { *self }
+        }
+    );
+}
+
+#[macro_export]
 macro_rules! cstr {
     ($val:literal) => {
         CString::new($val).unwrap().as_ptr()
     };
 }
 
+#[macro_export]
+macro_rules! throw_errno {
+    ($call:ident ( $($arg:expr),* ) throws $err:ident) => {
+        {
+            let ret = $call( $($arg),*);
 
+            if ret == -1 {
+                eprintln!("{}: {:?}", stringify!($call), $crate::err::ErrNo::fetch());
+                return Err($crate::error::NetErr::$err);
+            }
 
-pub trait From2<T> {
-    fn from2(_: T) -> Self;
+            ret
+        }
+    };
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// Traits
 
 
 
@@ -136,6 +176,8 @@ impl TryInto<Ipv4Addr> for HostOrIPv4 {
 ////////////////////////////////////////////////////////////////////////////////
 //// Helper Function
 
+///// Random //////////////////////////
+
 pub fn software_random() -> usize {
     #[allow(unused_imports)]
     use rand;
@@ -152,3 +194,42 @@ pub fn software_random() -> usize {
 pub fn random() -> usize {
     software_random()
 }
+
+pub fn random_u8() -> u8 {
+    (random() % u8::MAX as usize) as u8
+}
+
+pub fn random_u16() -> u16 {
+    (random() % u16::MAX as usize) as u16
+}
+
+pub fn random_u32() -> u32 {
+    (random() % u32::MAX as usize) as u32
+}
+
+///// Counter //////////////////////////
+
+pub type CounterType = impl FnMut() -> usize;
+
+pub fn gen_counter() -> CounterType {
+    _gen_counter(0)
+}
+
+fn _gen_counter(init: usize) -> CounterType {
+    let mut count = init;
+
+    move || {
+        let old_count = count;
+        count = count.wrapping_add(1);
+        old_count
+    }
+}
+
+// #[cfg(test)]
+// mod tests {
+
+//     #[test]
+//     fn test_counter() {
+
+//     }
+// }

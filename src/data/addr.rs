@@ -1,7 +1,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// Data Structures
 
-use std::net::Ipv4Addr;
+use std::{net::Ipv4Addr, mem::transmute};
+
+use libc::sockaddr_in;
 
 use crate::aux::{htonl, ntohl, ntohs};
 
@@ -9,10 +11,10 @@ use crate::aux::{htonl, ntohl, ntohs};
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct SockAddrIn {
-    family: SAFamily,
-    port: u16,
+    pub family: SAFamily,
+    pub port: u16,
     /// IPv4 Address
-    addr: u32,
+    pub addr: u32,
     zero_pading: [u8; 8],
 }
 
@@ -29,6 +31,8 @@ pub enum SAFamily {
     Inet = 2,
     /// AF_INET 10
     Inet6 = 10,
+    /// AF_PACKET 17 (rx/tx raw packets at the Layer 2)
+    PACKET = 17,
 }
 
 
@@ -45,6 +49,19 @@ impl From<Ipv4Addr> for SockAddrIn {
         }
     }
 }
+
+impl Into<sockaddr_in> for SockAddrIn {
+    fn into(self) -> sockaddr_in {
+        unsafe { transmute(self) }
+    }
+}
+
+impl From<sockaddr_in> for SockAddrIn {
+    fn from(addr: sockaddr_in) -> Self {
+        unsafe { transmute(addr) }
+    }
+}
+
 
 impl std::fmt::Debug for SockAddrIn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

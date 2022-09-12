@@ -4,7 +4,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// View Structure
 
-use crate::error::NetError;
+use crate::error::NetErr;
 
 /// ICMP type and code
 #[derive(Debug, PartialEq, Eq)]
@@ -128,11 +128,11 @@ pub enum ExtendErrorCode {
 //// Implements
 
 impl TryFrom<u8> for UnreachCode {
-    type Error = NetError;
+    type Error = NetErr;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value > 15 {
-            Err(NetError::InvalidParam)
+            Err(NetErr::InvalidParam)
         }
         else {
             Ok(unsafe { std::mem::transmute(value) })
@@ -141,11 +141,11 @@ impl TryFrom<u8> for UnreachCode {
 }
 
 impl TryFrom<u8> for RedirectMessageCode {
-    type Error = NetError;
+    type Error = NetErr;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value > 3 {
-            Err(NetError::InvalidParam)
+            Err(NetErr::InvalidParam)
         }
         else {
             Ok(unsafe { std::mem::transmute(value) })
@@ -154,11 +154,11 @@ impl TryFrom<u8> for RedirectMessageCode {
 }
 
 impl TryFrom<u8> for TimeExceededCode {
-    type Error = NetError;
+    type Error = NetErr;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value > 1 {
-            Err(NetError::InvalidParam)
+            Err(NetErr::InvalidParam)
         }
         else {
             Ok(unsafe { std::mem::transmute(value) })
@@ -167,11 +167,11 @@ impl TryFrom<u8> for TimeExceededCode {
 }
 
 impl TryFrom<u8> for BadParamCode {
-    type Error = NetError;
+    type Error = NetErr;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value > 2 {
-            Err(NetError::InvalidParam)
+            Err(NetErr::InvalidParam)
         }
         else {
             Ok(unsafe { std::mem::transmute(value) })
@@ -180,11 +180,11 @@ impl TryFrom<u8> for BadParamCode {
 }
 
 impl TryFrom<u8> for ExtendErrorCode {
-    type Error = NetError;
+    type Error = NetErr;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value > 4 {
-            Err(NetError::InvalidParam)
+            Err(NetErr::InvalidParam)
         }
         else {
             Ok(unsafe { std::mem::transmute(value) })
