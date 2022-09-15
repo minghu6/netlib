@@ -1,5 +1,7 @@
 //! On IPv4
 #![allow(unused_imports)]
+#![allow(unused)]
+
 
 use std::{mem::size_of, ptr::null_mut, thread};
 
@@ -58,12 +60,12 @@ pub static mut GEN_IP_ID: fn() -> u16 = || unsafe {
 pub unsafe fn init_socket_pair() -> Result<(i32, i32)> {
     let tx = throw_errno!(
         socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32)
-        throws CreateRawSocketFailed
+        throws CreateRawSocket
     );
 
     let rx = throw_errno!(
         socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32)
-        throws CreateRawSocketFailed
+        throws CreateRawSocket
     );
 
     let ifaddr = getifaddrs().unwrap().get_sockaddr_in().unwrap();
@@ -82,31 +84,32 @@ pub unsafe fn init_socket_pair() -> Result<(i32, i32)> {
         tx,
         &mut addr_local as *mut sockaddr_in as *mut sockaddr,
         size_of::<sockaddr_in>() as u32
-    ) throws BindFailed);
+    ) throws Bind);
 
     Ok((tx, rx))
 }
 
 
 pub unsafe fn shakehand(sock_send: i32, sock_recv: i32) -> Result<()> {
-    /* Send SYN */
-    let iphdr = IP {
-        ihl_v: IP::ihl_v(5, 4),
-        tos: ToS::new(ECN::ECT0, DS::default()).into(),
-        len: 0,
-        id: GEN_IP_ID(),
-        frag_off: IP::frag_off(FragFlag::DF, 0),
-        ttl: 64,
-        protocol: Protocol::TCP as u8,
-        checksum: todo!(),
-        ip_src: todo!(),
-        ip_dst: todo!(),
-    };
+    // /* Send SYN */
+    // let iphdr = IP {
+    //     ihl_v: IP::ihl_v(5, 4),
+    //     tos: ToS::new(ECN::ECT0, DS::default()).into(),
+    //     len: 0,
+    //     id: GEN_IP_ID(),
+    //     frag_off: IP::frag_off(FragFlag::DF, 0),
+    //     ttl: 64,
+    //     protocol: Protocol::TCP as u8,
+    //     checksum: todo!(),
+    //     ip_src: todo!(),
+    //     ip_dst: todo!(),
+    // };
 
 
 
     Ok(())
 }
+
 
 pub async unsafe fn listen_socket(sock_local: i32, mut addr_remote: sockaddr_in) -> Result<i32> {
     // let epfd = throw_errno!(epoll_create1(0) throws TcpImpError::CreateEpollFailed);
@@ -136,7 +139,7 @@ pub async unsafe fn listen_socket(sock_local: i32, mut addr_remote: sockaddr_in)
         sock_local,
         &mut addr_remote as *mut sockaddr_in as *mut sockaddr,
         &mut size_of::<sockaddr_in>() as *mut usize as *mut socklen_t
-    ) throws AcceptFailed);
+    ) throws Accept);
 
 
     Ok(fd)

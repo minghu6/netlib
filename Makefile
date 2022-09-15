@@ -29,3 +29,5 @@ run_tcp_client_c0:
 	@ cargo build --bin tcp_client_c0
 	@ ./target/debug/tcp_client_c0
 
+run_shttpd:
+	@ cargo run --example shttpd

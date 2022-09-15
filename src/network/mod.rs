@@ -59,7 +59,7 @@ pub unsafe fn inet_cksum(mut data: *const u8, mut len: usize) -> u16 {
 pub unsafe fn getifaddrs() -> Result<IfAddrs> {
     let mut ifa = null_mut();
 
-    throw_errno!(cgetifaddrs(&mut ifa) throws GetIfAddrsFailed);
+    throw_errno!(cgetifaddrs(&mut ifa) throws GetIfAddrs);
 
     let mut items = vec![];
 
@@ -132,7 +132,7 @@ pub unsafe fn getsockname_sockaddr_in(socket: i32) -> Result<SockAddrIn> {
         socket,
         &mut addr as *mut sockaddr_in as *mut sockaddr,
         &mut addr_len as *mut socklen_t
-    ) throws GetSockNameFailed );
+    ) throws GetSockName );
 
     Ok(SockAddrIn::from(addr))
 }

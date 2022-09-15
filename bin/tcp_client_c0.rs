@@ -1,3 +1,6 @@
+#![allow(unused_imports)]
+#![allow(unused)]
+
 use std::{
     io::{Read, Write},
     net::{Ipv4Addr, SocketAddrV4},

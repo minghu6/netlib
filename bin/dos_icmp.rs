@@ -45,7 +45,7 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
     };
     config
     .serialize_into(&mut sendbuf[..size_of::<IP>()], &iphdr)
-    .or(Err(NetErr::SerializeFailed))?;
+    .or(Err(NetErr::Serialize))?;
 
     iphdr.checksum = inet_cksum(sendbuf.as_ptr(), size_of::<IP>());
 
@@ -60,10 +60,10 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
 
     config
     .serialize_into(&mut sendbuf[..size_of::<IP>()], &iphdr)
-    .or(Err(NetErr::SerializeFailed))?;
+    .or(Err(NetErr::Serialize))?;
     config
     .serialize_into(&mut sendbuf[size_of::<IP>()..], &icmphdr)
-    .or(Err(NetErr::SerializeFailed))?;
+    .or(Err(NetErr::Serialize))?;
 
     let size = sendto(
         RAWSOCK,
@@ -82,7 +82,7 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
         let errno = ErrNo::fetch();
 
         eprintln!("{:#?} sendto {:#?} failed({errno:#?})", src, dst);
-        return Err(NetErr::SendToFailed);
+        return Err(NetErr::SendTo);
     }
     else {
         println!("{:#?} sendto {:#?} succeed", src, dst);
@@ -145,7 +145,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // IPPROTO_RAW - 255
         RAWSOCK = socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32);
         if RAWSOCK < 0 {
-            return Err(box NetErr::CreateRawSocketFailed);
+            return Err(box NetErr::CreateRawSocket);
         }
 
         // ICMP DoS Attack: Fake Source

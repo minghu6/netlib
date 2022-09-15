@@ -5,7 +5,6 @@ edition = "2021"
 description = ""
 authors = [ "minghu6 <a19678zy@163.com>" ]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 libc = { version = "0.2", features = ["extra_traits"] }
@@ -13,42 +12,67 @@ getset = "0.1.2"
 bincode = "1.3.3"
 serde = { version = "1.0", features = ["derive"] }
 memmap2 = "0.5.4"
-# nix = "0.24.1"
 either = "~1.7"
+bytes = "1"
+
 dns-lookup = "1"
 
-crossbeam-channel = "0.5"
-signal-hook = "0.3.14"
 chrono = "0.4"
 rand = "0.8.5"
 maplit = "0.1.2"
 
+
+[dev-dependencies]
+###################### Config Parser ######################
+serde_yaml = "0.9"
+
+########################## SYNC ##########################
+crossbeam-channel = "0.5"
+futures = { version = "0.3", features = ["thread-pool", "executor"] }
+signal-hook = "0.3.14"
+
+########################## CLI ##########################
 clap = { version = "^3", features = ["derive"] }
 clap_complete = "3.1.1"
 shellexpand = "2.1"
 
+########################## HTTP LIB ##########################
+hyper = { version = "0.14.20", features = ["http1", "http2", "server"] }
+http = "0.2"
 
-[[bin]]
+# lazy_static = "1.4.0"
+itertools = "0.10"
+
+# Logger
+log = "0.4"
+log4rs = { version = "1.1.1", features = ["background_rotation"] }
+
+
+
+[[example]]
 name="tcp_server_r0"
 path="bin/tcp_server_r0.rs"
 
-[[bin]]
+[[example]]
 name = "ping"
 path = "bin/ping.rs"
 
-[[bin]]
+[[example]]
 name = "dos_icmp"
 path = "bin/dos_icmp.rs"
 
-[[bin]]
+[[example]]
 name = "dos_tcp"
 path = "bin/dos_tcp.rs"
 
-[[bin]]
+[[example]]
 name="tcp_client_r0"
 path="bin/tcp_client_r0.rs"
 
-[[bin]]
+[[example]]
 name="tcp_client_c0"
 path="bin/tcp_client_c0.rs"
 
+[[example]]
+name="shttpd"
+path="bin/shttpd/main.rs"

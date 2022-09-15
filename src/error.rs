@@ -5,24 +5,61 @@ defe! {
     pub enum NetErr {
         InvalidParam,
 
-        DeserializeFailed,
-        SerializeFailed,
+        Deserialize,
+        Serialize,
+        MalformedYAML,
+        YAMLField(&'static str),
+
+        HttpBadReq(HttpKind),
+        Log4RS(LoggerKind),
 
         UnresolvedHost(String),
-        MMPoisonError,
+        MMPoison,
 
-        EpollCreateFailed,
-        EpollCtlFailed,
-        EpollWaitFailed,
+        EpollCreate,
+        EpollCtl,
+        EpollWait,
 
-        CreateRawSocketFailed,
-        GetSockNameFailed,
-        AcceptFailed,
-        SendToFailed,
-        GetIfAddrsFailed,
-        SocketRawFailed,
-        BindFailed,
+        CreateRawSocket,
+        GetSockName,
+        Accept,
+        SendTo,
+        GetIfAddrs,
+        SocketRaw,
+        Bind,
+        StreamShutDown(std::io::Error),
+        SetStreamOpt(std::io::Error),
+        Read(std::io::Error),
+
+        ReadDir(std::io::Error),
+        IterDirEntry(std::io::Error),
+        AbsolutePath(std::io::Error),
+        Open(std::io::Error),
+        Write(std::io::Error),
+        CreateThreadPool(std::io::Error),
+        Bug(String)
     }
+}
+
+#[derive(Debug)]
+pub enum HttpKind {
+    TooShort(usize),
+    InvalidReqLn,
+    InvalidHeader(String),
+    InvalidBody,
+
+    ReqLnNotFound,
+    HeaderNotFoundForVersion(String),
+    UnRecognizedVerStr(String),
+    /// This error should be a bug
+    Bug(String)
+    // UnSupportedHttpVer(String)
+}
+
+#[derive(Debug)]
+pub enum LoggerKind {
+    LoadConfigFailed(String),
+    InvalidEnv(String)
 }
 
 pub type Result<T> = std::result::Result<T, NetErr>;

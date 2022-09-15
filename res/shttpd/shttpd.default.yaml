@@ -1,0 +1,13 @@
+cgiroot: /usr/local/var/shttpd/cgi-bin
+
+default-file: index.html
+
+listen-port: 80
+
+# client: {
+#   max: 4,
+#   init: 2
+# }
+
+timeout: 3000
+

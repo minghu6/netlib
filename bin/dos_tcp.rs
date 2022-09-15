@@ -59,13 +59,13 @@ pub unsafe fn quick_send_syn(
     };
     config
         .serialize_into(&mut sendbuf[..IPSZ], &iphdr)
-        .or(Err(NetErr::SerializeFailed))?;
+        .or(Err(NetErr::Serialize))?;
 
     iphdr.checksum = inet_cksum(sendbuf.as_ptr(), IPSZ);
 
     config
         .serialize_into(&mut sendbuf[..IPSZ], &iphdr)
-        .or(Err(NetErr::SerializeFailed))?;
+        .or(Err(NetErr::Serialize))?;
 
     /* SET TCP HEADER */
     let mut tcphdr = TCP {
@@ -83,7 +83,7 @@ pub unsafe fn quick_send_syn(
     iphdr.write_pseudo_iphdr(&mut checksum_buf, (TCPSZ + 0) as u16);
     config
     .serialize_into(&mut checksum_buf[12..], &tcphdr)
-    .or(Err(NetErr::SerializeFailed))?;
+    .or(Err(NetErr::Serialize))?;
 
     tcphdr.check = inet_cksum(
         checksum_buf.as_ptr(),
@@ -92,7 +92,7 @@ pub unsafe fn quick_send_syn(
 
     config
         .serialize_into(&mut sendbuf[IPSZ..], &tcphdr)
-        .or(Err(NetErr::SerializeFailed))?;
+        .or(Err(NetErr::Serialize))?;
 
     let size = sendto(
         RAWSOCK,
@@ -111,7 +111,7 @@ pub unsafe fn quick_send_syn(
         let errno = ErrNo::fetch();
 
         eprintln!("{:#?} sendto {:#?} failed({errno:#?})", src, dst);
-        return Err(NetErr::SendToFailed);
+        return Err(NetErr::SendTo);
     } else {
         println!("{:#?} sendto {:#?} succeed", src, dst);
     }
@@ -160,7 +160,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // IPPROTO_RAW - 255
         RAWSOCK = socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32);
         if RAWSOCK < 0 {
-            return Err(box NetErr::CreateRawSocketFailed);
+            return Err(box NetErr::CreateRawSocket);
         }
 
         // TCP SYN DoS Attack
