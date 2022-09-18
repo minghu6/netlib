@@ -106,6 +106,14 @@ macro_rules! s {
 }
 
 
+#[macro_export]
+macro_rules! or2s {
+    ($expr:expr) => {
+        $expr.or_else(|err| Err(format!("{err:?}")))
+    };
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //// Traits
 

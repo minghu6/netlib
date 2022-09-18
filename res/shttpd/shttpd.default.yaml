@@ -1,5 +1,15 @@
 cgiroot: /usr/local/var/shttpd/cgi-bin
+cgimapping:
+  -
+    route: /hi
+    cgi:   /print-hi
 
+  -
+    route: /demo/fake
+    cgi:   /demo-fake
+
+
+docroot: /usr/local/var/shttpd/
 default-file: index.html
 
 listen-port: 80
@@ -9,5 +19,5 @@ listen-port: 80
 #   init: 2
 # }
 
-timeout: 3000
+timeout: 250000
 

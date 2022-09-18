@@ -15,11 +15,19 @@ memmap2 = "0.5.4"
 either = "~1.7"
 bytes = "1"
 
+# http
+mime = "0.3.16"
+cookie = "0.16"
+encoding = "0.2.33"
+
 dns-lookup = "1"
 
 chrono = "0.4"
 rand = "0.8.5"
 maplit = "0.1.2"
+regex = "1"
+lazy_static = "1.4.0"
+itertools = "0.10"
 
 
 [dev-dependencies]
@@ -37,11 +45,9 @@ clap_complete = "3.1.1"
 shellexpand = "2.1"
 
 ########################## HTTP LIB ##########################
-hyper = { version = "0.14.20", features = ["http1", "http2", "server"] }
 http = "0.2"
+qstring = "0.7.2"
 
-# lazy_static = "1.4.0"
-itertools = "0.10"
 
 # Logger
 log = "0.4"

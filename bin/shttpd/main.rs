@@ -4,16 +4,20 @@
 mod conf;
 mod worker;
 mod req;
+mod resp;
+mod route;
+mod cgi;
 
 
 use std::{
     net::{Ipv4Addr, SocketAddrV4, TcpListener},
     path::PathBuf,
-    env,
+    env, sync::Arc,
 };
 
 use clap::Parser;
 use conf::*;
+use route::RouteResolver;
 use worker::*;
 use netlib::error::*;
 use futures::executor::{ThreadPool, self};
@@ -21,10 +25,10 @@ use log::info;
 use log4rs;
 
 
-async fn do_listen<'a>(conf: ServConf) -> Result<()> {
+async fn do_listen(ctx: Arc<GloablContext>) -> Result<()> {
     let servaddr = SocketAddrV4::new(
         Ipv4Addr::LOCALHOST,
-        *conf.listen_port()
+        *ctx.servconf.listen_port()
     );
 
     let listener = TcpListener::bind(servaddr)
@@ -37,7 +41,7 @@ async fn do_listen<'a>(conf: ServConf) -> Result<()> {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                pool.spawn_ok(do_work(conf.clone(), stream))
+                pool.spawn_ok(do_work(ctx.clone(), stream))
             },
             Err(err) => {
                 eprintln!("{:?}", err);
@@ -61,10 +65,16 @@ struct Cli {
 }
 
 
+pub struct GloablContext {
+    pub resolver: RouteResolver,
+    pub servconf: ServConf
+}
+
+
 fn main() -> Result<()> {
     let _cli = Cli::parse();
 
-    let servconf = crate::conf::load_default_conf("res/shttpd/shttpd.default.yaml")?;
+    /* Logger should be configured first! */
     let mut logconf = log4rs::config::load_config_file(
         "res/shttpd/log4rs.default.yaml",
         Default::default()
@@ -88,9 +98,21 @@ fn main() -> Result<()> {
         Err(NetErr::Log4RS(LoggerKind::InvalidEnv(format!("{}", err))))
     )?;
 
-    info!("{:#?}", servconf);
 
-    executor::block_on(do_listen(servconf))?;
+    let servconf = crate::conf::load_default_conf("res/shttpd/shttpd.default.yaml")?;
+    info!("servconf: {:#?}", servconf);
+
+    let resolver = RouteResolver {
+        docroot: servconf.docroot().clone(),
+        default_file: PathBuf::from(servconf.default_file().clone()),
+        cgimap: servconf.cgimap().clone(),
+    };
+    let global = Arc::new(GloablContext {
+        resolver,
+        servconf,
+    });
+
+    executor::block_on(do_listen(global))?;
 
     Ok(())
 }

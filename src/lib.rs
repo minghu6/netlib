@@ -5,6 +5,7 @@
 
 pub mod network;
 pub mod transport;
+pub mod application;
 pub mod error;
 pub mod aux;
 pub mod data;
