@@ -36,7 +36,9 @@ impl Req {
     ) -> std::result::Result<Req, HttpKind> {
         // let plain = String::from_utf8_lossy(&bytes[..filledn]);
         if filln < 3 * 2 {
-            return Err(HttpKind::TooShort(filln));
+            return Err(HttpKind::TooShort(
+                String::from_utf8_lossy(&bytes[..filln]).to_string()
+            ));
         }
 
         // bytes[filledn] = 0, on guard
@@ -181,7 +183,7 @@ impl Req {
             uri,
             accept,
             cookie,
-            body: Body::Empty,
+            body: Body::empty(),
         })
     }
 

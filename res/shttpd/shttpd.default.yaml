@@ -1,4 +1,4 @@
-cgiroot: /usr/local/var/shttpd/cgi-bin
+cgiroot: /usr/local/var/shttpd/cgi
 cgimapping:
   -
     route: /hi
@@ -6,11 +6,13 @@ cgimapping:
 
   -
     route: /demo/fake
-    cgi:   /demo-fake
+    cgi:   /guess-num
 
 
 docroot: /usr/local/var/shttpd/
 default-file: index.html
+
+persisroot: /usr/local/var/shttpd/persis
 
 listen-port: 80
 

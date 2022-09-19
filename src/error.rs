@@ -8,7 +8,8 @@ defe! {
         Deserialize,
         Serialize,
         MalformedYAML,
-        YAMLField(&'static str),
+        YAMLInvalidField(&'static str),
+        YAMLNonExistField(&'static str),
 
         HttpBadReq(HttpKind),
         Log4RS(LoggerKind),
@@ -37,13 +38,14 @@ defe! {
         Open(std::io::Error),
         Write(std::io::Error),
         CreateThreadPool(std::io::Error),
+        CreateDirAll(std::io::Error),
         Bug(String)
     }
 }
 
 #[derive(Debug)]
 pub enum HttpKind {
-    TooShort(usize),
+    TooShort(String),
     InvalidReqLn,
     InvalidHeader(String),
     InvalidBody,

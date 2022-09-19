@@ -16,6 +16,7 @@ either = "~1.7"
 bytes = "1"
 
 # http
+http = "0.2"
 mime = "0.3.16"
 cookie = "0.16"
 encoding = "0.2.33"
@@ -45,7 +46,6 @@ clap_complete = "3.1.1"
 shellexpand = "2.1"
 
 ########################## HTTP LIB ##########################
-http = "0.2"
 qstring = "0.7.2"
 
 

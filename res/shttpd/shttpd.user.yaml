@@ -1,0 +1,3 @@
+cgiroot: res/shttpd
+docroot: res/shttpd
+persisroot: res/shttpd/draft

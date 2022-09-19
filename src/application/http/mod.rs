@@ -3,6 +3,7 @@
 use std::{str::FromStr, convert::Infallible};
 
 use cookie::Cookie;
+use http::header::CONTENT_TYPE;
 use mime::{ Mime, self};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -29,6 +30,8 @@ pub struct AcceptItem {
 pub struct HeaderCookie {
     items: Vec<Cookie<'static>>
 }
+
+
 
 
 
@@ -150,3 +153,37 @@ impl FromStr for HeaderCookie {
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+//// Function
+
+
+pub fn parse_content_type(s: &str) -> Result<Mime, ()> {
+    let s = s.trim().to_lowercase();
+    let prefix = format!("{CONTENT_TYPE}: ");
+
+    if !s.starts_with(&prefix) {
+        return Err(());
+    }
+
+    Mime::from_str(&s[prefix.len()..])
+    .or_else(|_| Err(()))
+
+}
+
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use mime::Mime;
+
+
+    #[test]
+    fn test_mime_from() {
+        let s = "text/plain; charset=UTF-8";
+
+        let m = Mime::from_str(&s).unwrap();
+
+        println!("m: {m}");
+    }
+}

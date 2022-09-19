@@ -30,4 +30,4 @@ run_tcp_client_c0:
 	@ ./target/debug/tcp_client_c0
 
 run_shttpd:
-	@ cargo run --example shttpd
+	@ cargo run --example shttpd -- -c res/shttpd/shttpd.user.yaml
