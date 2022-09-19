@@ -18,7 +18,7 @@ use http::{
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::info;
-use netlib::{error::*, s};
+use netlib::{error::*, s, application::http::AcceptEncoding};
 
 use crate::req::*;
 use crate::{
@@ -64,10 +64,18 @@ fn _do_work(ctx: Arc<GloablContext>, mut stream: TcpStream) -> Result<()> {
 
     info!("Incomming request: \n{:#?}\n", req);
 
-    let mut bytes_resp = BytesMut::new();
+    let mut bytes_resp = Vec::new();
     let resp = ctx.resolver.resolve(&req);
 
-    resp.into_bytes(&mut bytes_resp);
+    let encoding =
+    if req.accept_encoding.contains(&AcceptEncoding::Gzip) {
+        Some(AcceptEncoding::Gzip)
+    }
+    else {
+        None
+    };
+
+    resp.into_bytes(&mut bytes_resp, encoding);
 
     stream
         .write(bytes_resp.as_ref())

@@ -1,12 +1,16 @@
 use std::str::FromStr;
 
 use http::{
-    header::{HeaderName, ACCEPT, COOKIE},
+    header::{HeaderName, ACCEPT, COOKIE, ACCEPT_ENCODING},
     uri::{PathAndQuery, Scheme},
-    HeaderValue, Method, Uri, Version, HeaderMap,
+    HeaderMap, HeaderValue, Method, Uri, Version,
 };
 use itertools::Itertools;
-use netlib::{application::http::{HeaderAccept, HeaderCookie}, error::*, s};
+use netlib::{
+    application::http::{HeaderAccept, HeaderAcceptEncoding, HeaderCookie},
+    error::*,
+    s,
+};
 
 use crate::resp::Body;
 
@@ -21,6 +25,7 @@ pub struct Req {
     pub method: Method,
     pub uri: Uri,
     pub accept: HeaderAccept,
+    pub accept_encoding: HeaderAcceptEncoding,
     pub cookie: HeaderCookie,
     pub body: Body,
 }
@@ -37,7 +42,7 @@ impl Req {
         // let plain = String::from_utf8_lossy(&bytes[..filledn]);
         if filln < 3 * 2 {
             return Err(HttpKind::TooShort(
-                String::from_utf8_lossy(&bytes[..filln]).to_string()
+                String::from_utf8_lossy(&bytes[..filln]).to_string(),
             ));
         }
 
@@ -139,10 +144,9 @@ impl Req {
                         "There is no colon sign in header line:\n{ln:#?}"
                     )))?;
 
-                let name =
-                    HeaderName::from_bytes(&ln[..pos_colon]).or_else(|err| {
-                        Err(HttpKind::InvalidHeader(format!("{}", err)))
-                    })?;
+                let name = HeaderName::from_bytes(&ln[..pos_colon]).or_else(
+                    |err| Err(HttpKind::InvalidHeader(format!("{}", err))),
+                )?;
 
                 let value = HeaderValue::from_bytes(&ln[pos_colon + 1..])
                     .or_else(|err| {
@@ -156,6 +160,16 @@ impl Req {
         /* Handle split header */
         /* Accept */
         let accept = if let Some(val) = hdrs.get(ACCEPT) {
+            match val.to_str().unwrap().parse() {
+                Ok(res) => res,
+                Err(_) => Default::default(),
+            }
+        }
+        else {
+            Default::default()
+        };
+
+        let accept_encoding = if let Some(val) = hdrs.get(ACCEPT_ENCODING) {
             match val.to_str().unwrap().parse() {
                 Ok(res) => res,
                 Err(_) => Default::default(),
@@ -182,9 +196,9 @@ impl Req {
             method,
             uri,
             accept,
+            accept_encoding,
             cookie,
             body: Body::empty(),
         })
     }
-
 }

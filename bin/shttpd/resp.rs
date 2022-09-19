@@ -1,12 +1,12 @@
-use std::fmt::Write;
+use std::io::Write;
 
-use bytes::BytesMut;
 use http::{
-    header::{CONTENT_TYPE, DATE, SERVER, CONNECTION, CONTENT_LENGTH},
+    header::{CONTENT_TYPE, DATE, SERVER, CONNECTION, CONTENT_LENGTH, CONTENT_ENCODING},
     StatusCode, Version,
 };
 use mime::{Mime, TEXT_PLAIN_UTF_8, TEXT_HTML_UTF_8};
-use netlib::s;
+use flate2::{write::GzEncoder, Compression};
+use netlib::{s, application::http::AcceptEncoding};
 
 
 pub const SERVER_NAME: &str = "Shttpd-minghu6 (Linux)";
@@ -23,7 +23,6 @@ pub struct Resp {
     // content_length: u64,, replacing with body.len()
     server: String,
     is_close: bool,
-
     body: Body,
 }
 
@@ -114,7 +113,7 @@ impl Resp {
         }
     }
 
-    pub fn into_bytes(self, bytes: &mut BytesMut) {
+    pub fn into_bytes(self, bytes: &mut Vec<u8>, encoding: Option<AcceptEncoding>) {
         let Self {
                 version,
                 status,
@@ -126,10 +125,25 @@ impl Resp {
 
         let Body { content_type, body } = body;
 
+        let mut body: Vec<u8> = body.into();
+
         /* Write status line */
         write!(bytes, "{version:?} {status}\r\n").unwrap();
         write!(bytes, "{DATE}: {date}\r\n").unwrap();
         write!(bytes, "{SERVER}: {server}\r\n").unwrap();
+        if let Some(ref encoding) = encoding {
+            write!(bytes, "{CONTENT_ENCODING}: {encoding}\r\n").unwrap();
+            match encoding {
+                AcceptEncoding::Gzip => {
+                    let mut tmpbuf = vec![];
+                    let mut e = GzEncoder::new(&mut tmpbuf, Compression::default());
+                    e.write(&mut body).unwrap();
+                    drop(e);
+                    body = tmpbuf;
+                },
+                _=> todo!(),
+            }
+        }
         write!(bytes, "{CONTENT_TYPE}: {content_type}\r\n").unwrap();
         write!(bytes, "{CONTENT_LENGTH}: {}\r\n", body.len()).unwrap();
 
@@ -138,7 +152,9 @@ impl Resp {
         }
 
         write!(bytes, "\r\n").unwrap();
-        write!(bytes, "{body}").unwrap();
+
+        bytes.write(&body).unwrap();
+
     }
 }
 

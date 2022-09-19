@@ -176,7 +176,8 @@ fn read_dir_to_writeable<P: AsRef<Path>, W: Write>(
     for dir_ent_res in or2s!(read_dir(p))? {
         let dir_ent = or2s!(dir_ent_res)?;
 
-        let name = dir_ent.file_name();
+        let name_osstr = dir_ent.file_name();
+        let name = name_osstr.to_string_lossy();
         let meta = or2s!(dir_ent.metadata())?;
 
         let mut ft = String::new();
@@ -204,9 +205,9 @@ fn read_dir_to_writeable<P: AsRef<Path>, W: Write>(
                     dir_ent.path()
                 ));
             },
-        );
+        ).to_rfc2822();
 
-        writeln!(w, "{ft:2} {dt} {name:<20?}").unwrap();
+        writeln!(w, "{ft:2} {dt} {name:<20}").unwrap();
     }
 
     Ok(())
