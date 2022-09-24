@@ -5,7 +5,7 @@ use std::{net::Ipv4Addr, mem::transmute};
 
 use libc::sockaddr_in;
 
-use crate::aux::{htonl, ntohl, ntohs};
+use crate::{aux::{htonl, ntohl, ntohs}, defraw};
 
 /// Synonym libc::sockaddr_in
 #[repr(C)]
@@ -32,12 +32,27 @@ pub enum SAFamily {
     /// AF_INET 10
     Inet6 = 10,
     /// AF_PACKET 17 (rx/tx raw packets at the Layer 2)
-    PACKET = 17,
+    Packet = 17,
 }
+
+defraw! {
+    /// Network bytes order
+    pub struct InAddrN(u32);
+}
+
+/// Native bytes order
+pub struct InAddr(pub u32);
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Implementations
+
+impl From<InAddr> for InAddrN {
+    fn from(addr: InAddr) -> Self {
+        Self (unsafe { htonl(addr.0) })
+    }
+}
+
 
 impl From<Ipv4Addr> for SockAddrIn {
     fn from(ipv4: Ipv4Addr) -> Self {
@@ -74,6 +89,9 @@ impl std::fmt::Debug for SockAddrIn {
         }
     }
 }
+
+
+
 
 
 #[allow(unused_imports)]

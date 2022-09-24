@@ -1,11 +1,10 @@
-
 ////////////////////////////////////////////////////////////////////////////////
 //// Macros
 
-use std::{net::Ipv4Addr, str::FromStr, error::Error, cell::RefCell};
+use std::{cell::RefCell, error::Error, net::Ipv4Addr, str::FromStr};
 
 use either::Either;
-use libc::{c_char, in_addr_t, in_addr};
+use libc::{c_char, in_addr, in_addr_t};
 
 /// use bincode::{ Options, options };
 #[macro_export]
@@ -27,16 +26,16 @@ macro_rules! __item {
 
 #[macro_export]
 macro_rules! defe {
-    ($($(#[$attr:meta])* pub $t:ident $i:ident { $($field:tt)* })*) => ($(
-        defe!(it: $(#[$attr])* pub $t $i { $($field)* });
+    ($($(#[$outter:meta])* pub $t:ident $i:ident { $($field:tt)* })*) => ($(
+        defe!(it: $(#[$outter])* pub $t $i { $($field)* });
     )*);
-    // (it: $(#[$attr:meta])* pub union $i:ident { $($field:tt)* }) => (
+    // (it: $(#[$outter:meta])* pub union $i:ident { $($field:tt)* }) => (
     //     compile_error!("unions cannot derive extra traits, use s_no_extra_traits instead");
     // );
-    (it: $(#[$attr:meta])* pub $t:ident $i:ident { $($field:tt)* }) => (
+    (it: $(#[$outter:meta])* pub $t:ident $i:ident { $($field:tt)* }) => (
         $crate::__item! {
             #[derive(Debug)]
-            $(#[$attr])*
+            $(#[$outter])*
             pub $t $i { $($field)* }
         }
         impl std::fmt::Display for $i {
@@ -49,31 +48,127 @@ macro_rules! defe {
     );
 }
 
+// #[macro_export]
+// macro_rules! defraw {
+//     ($($(#[$outter:meta])* pub $t:ident $i:ident { $($field:tt)* })*) => ($(
+//         defraw!(it_struct: $(#[$outter])* pub $t $i { $($field)* });
+//     )*);
+//     ($($(#[$outter:meta])* pub $t:ident $i:ident ( $ty:ty ))*) => ($(
+//         defraw!(it_struct_transport: $(#[$outter])* pub $t $i ( $field ));
+//     )*);
+
+//     (it_struct: $(#[$outter:meta])* pub struct $i:ident { $($field:tt)* }) => (
+//         $crate::__item! {
+//             #[repr(C)]
+//             #[derive(Default, Clone, Copy, Debug)]
+//             #[allow(deprecated, non_camel_case_types)]
+//             $(#[$outter])*
+//             pub struct $i { $($field)* }
+//         }
+//     );
+//     (it_struct_transport: $(#[$outter:meta])* pub struct $i:ident ( $ty:ty )) => (
+//         $crate::__item! {
+//             #[repr(C)]
+//             #[derive(Default, Clone, Copy, Debug)]
+//             #[allow(deprecated, non_camel_case_types)]
+//             $(#[$outter])*
+//             pub struct $i ( $ty )
+//         }
+//     );
+// }
+
 #[macro_export]
 macro_rules! defraw {
-    ($($(#[$attr:meta])* pub $t:ident $i:ident { $($field:tt)* })*) => ($(
-        defraw!(it: $(#[$attr])* pub $t $i { $($field)* });
-    )*);
-    (it: $(#[$attr:meta])* pub union $i:ident { $($field:tt)* }) => (
-        compile_error!("unions cannot derive extra traits, use s_no_extra_traits instead");
-    );
-    (it: $(#[$attr:meta])* pub struct $i:ident { $($field:tt)* }) => (
-        $crate::__item! {
-            #[derive(Debug)]
-            #[repr(C)]
-            #[cfg_attr(feature = "extra_traits", derive(Debug, Eq, Hash, PartialEq))]
+    ($(#[$outter:meta])* pub $t:ident $i:ident $($rem:tt)*) => (
+        $crate::__defraw!(
+            #[derive(Default, Clone, Copy, Debug)]
             #[allow(deprecated, non_camel_case_types)]
-            $(#[$attr])*
-            pub struct $i { $($field)* }
-        }
-        #[allow(deprecated)]
-        impl Copy for $i {}
-        #[allow(deprecated)]
-        impl Clone for $i {
-            fn clone(&self) -> $i { *self }
-        }
+            $(#[$outter])* pub $t $i $($rem)*
+        );
     );
+    ($($rem:tt)*) => ();
 }
+
+
+#[macro_export]
+macro_rules! __defraw {
+    (
+        $(#[$outter:meta])*
+        pub struct $i:ident {
+            $(
+                $( #[$inner:meta] )*
+                $field_name:ident : $ty:ty
+            ),* $(,)?
+        }
+        $($rem:tt)*
+    ) => (
+        #[repr(C)]
+        $(#[$outter])*
+        pub struct $i {
+            $(
+                $( #[$inner] )*
+                pub $field_name : $ty
+            ),*
+        }
+
+        $crate::defraw!($($rem)*);
+    );
+    ($(#[$outter:meta])* pub struct $i:ident ( $ty:ty ) $($rem:tt)*) => (
+        #[repr(C)]
+        $(#[$outter])*
+        pub struct $i ( pub $ty );
+
+        $crate::defraw!($($rem)*);
+    );
+    ($(#[$outter:meta])* pub enum $i:ident { $($field:tt)* } $($rem:tt)*) => (
+        $(#[$outter])*
+        pub enum $i { $($field)* }
+
+        $crate::defraw!($($rem)*);
+    );
+
+    ($($rem:tt)*) => ();
+}
+
+
+#[macro_export]
+macro_rules! enum_try_from_int {
+    (
+        #[repr($T: ident)]
+        $( #[$outter: meta] )*
+        $vis: vis enum $Name: ident {
+            $(
+                $( #[$inner: meta] )*
+                $Variant: ident = $value: expr
+            ),*
+            $( , )?
+        }
+    ) => {
+        #[repr($T)]
+        $( #[$outter] )*
+        $vis enum $Name {
+            $(
+                $( #[$inner] )*
+                $Variant = $value
+            ),*
+        }
+
+        impl std::convert::TryFrom<$T> for $Name {
+            type Error = $T;
+
+            fn try_from(value: $T) -> Result<$Name, Self::Error> {
+                match value {
+                    $(
+                        $value => Ok($Name::$Variant),
+                    )*
+                    _ => Err(value)
+                }
+            }
+        }
+    }
+}
+
+
 
 #[macro_export]
 macro_rules! cstr {
@@ -152,10 +247,12 @@ impl FromStr for HostOrIPv4 {
         if let Some(c) = s.chars().next() {
             Ok(if c.is_digit(10) {
                 HostOrIPv4(Either::Left(Ipv4Addr::from_str(s)?))
-            } else {
+            }
+            else {
                 HostOrIPv4(Either::Right(s.to_owned()))
             })
-        } else {
+        }
+        else {
             Err(box CliError::ParseInAddrFailed("".to_string()))
         }
     }

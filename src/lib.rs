@@ -3,6 +3,7 @@
 #![feature(box_syntax)]
 #![feature(type_alias_impl_trait)]
 
+pub mod datalink;
 pub mod network;
 pub mod transport;
 pub mod application;
@@ -11,6 +12,7 @@ pub mod aux;
 pub mod data;
 pub mod err;
 pub mod imp;
+pub mod view;
 
 
 #[cfg(test)]

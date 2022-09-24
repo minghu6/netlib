@@ -1,7 +1,7 @@
 use crate::defraw;
 
+
 defraw! {
-    #[derive(PartialEq, Eq)]
     pub struct rtnl_link_stats {
         rx_packets: u32,
         tx_packets: u32,
@@ -20,18 +20,15 @@ defraw! {
         rx_frame_errors: u32,
         rx_fifo_errors: u32,
         rx_missed_errors: u32,
-
         /* detailed tx_errors */
         tx_aborted_errors: u32,
         tx_carrier_errors: u32,
         tx_fifo_errors: u32,
         tx_heartbeat_errors: u32,
         tx_window_errors: u32,
-
         /* for cslip etc */
         rx_compressed: u32,
         tx_compressed: u32,
-
         rx_nohandler: u32,
     }
 }

@@ -8,6 +8,8 @@ use std::{
 pub mod icmp;
 mod icmp_spec;
 pub mod ip;
+pub mod arp;
+
 
 use libc::{
     freeifaddrs, getifaddrs as cgetifaddrs, getsockname, sockaddr_in,
@@ -101,7 +103,7 @@ pub unsafe fn getifaddrs() -> Result<IfAddrs> {
                 ),
             }
         }
-        else if family == SAFamily::PACKET as u16
+        else if family == SAFamily::Packet as u16
             && !(*ifa).ifa_data.is_null()
         {
             IfAddrItem::Packet {
