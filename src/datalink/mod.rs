@@ -1,4 +1,6 @@
-use crate::{defraw, view::Hex8, network::ip::Protocol};
+use std::fmt::Debug;
+
+use crate::{defraw, view::Hex8, enum_try_from_int};
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -9,15 +11,49 @@ defraw! {
     pub struct Eth {
         dst: Mac,
         src: Mac,
-        proto: Protocol
+        proto: EthType
     }
 
     pub struct Mac ([Hex8; 6])
 }
 
 
+/// Network bytes order
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct EthType(pub u16);
+
+
+enum_try_from_int! {
+    #[repr(u16)]
+    #[derive(Clone, Copy, Default, Debug)]
+    #[non_exhaustive]
+    pub enum EthTypeE {
+        #[default]
+        IEEE8023 = 0x0000,
+        IPv4 = 0x0800,
+        ARP = 0x0806,
+        /// Audio Video Transport Protocol
+        AVTP = 0x22F0,
+        IPv6 = 0x86DD,
+        /// Ethernet flow control
+        EthFlowCtrl = 0x8808,
+    }
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //// Implementation
+
+
+impl Debug for EthType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match EthTypeE::try_from(self.0) {
+            Ok(enum_) => write!(f, "{enum_:?}"),
+            Err(code) => write!(f, "Unsupported(0x{code:02X})"),
+        }
+    }
+}
 
 impl Mac {
     pub fn new(p1: u8, p2: u8, p3: u8, p4: u8, p5: u8, p6: u8) -> Self {

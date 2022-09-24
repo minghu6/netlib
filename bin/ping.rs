@@ -184,7 +184,7 @@ unsafe fn icmp_unpack(
 
     // println!("fragflag: {:?}, fragoff: {}, raw: {}", iphdr.get_frag_flag(), iphdr.get_frag_off(), iphdr.frag_off);
 
-    let iphdr_len = iphdr.get_hdrsize();
+    let iphdr_len = iphdr.ihl_v.get_hdrsize();
 
     let icmphdr: ICMP = config
         .deserialize(&buf[iphdr_len..])
@@ -215,7 +215,7 @@ unsafe fn icmp_unpack(
 
                 println!(
                     "{} bytes from {:#?}: icmp_seq={} ttl={} rtt={:.3} ms",
-                    iphdr.get_packet_len(),
+                    iphdr.len.pack_len(),
                     src,
                     seq,
                     iphdr.ttl,

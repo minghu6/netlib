@@ -132,6 +132,19 @@ macro_rules! __defraw {
 
 
 #[macro_export]
+macro_rules! deftransparent {
+    ($(#[$outter:meta])* pub struct $i:ident ( $ty:ty ) ; $($rem:tt)*) => (
+        #[repr(C)]
+        #[derive(Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
+        $(#[$outter])*
+        pub struct $i (pub $ty);
+        deftransparent!($($rem)*);
+    );
+    () => ()
+}
+
+
+#[macro_export]
 macro_rules! enum_try_from_int {
     (
         #[repr($T: ident)]

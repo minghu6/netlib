@@ -1,12 +1,12 @@
 use std::{
     net::Ipv4Addr,
-    ptr::write, mem::transmute
+    ptr::write, mem::transmute, fmt::Debug
 };
 
 use getset::CopyGetters;
 use serde::{ Deserialize, Serialize };
 
-use crate::{aux::{ntohs, htons, ntohl}, defraw};
+use crate::{aux::{ntohs, htons}, defraw, data::InAddrN, deftransparent, view::U16N};
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Data Struct
@@ -21,19 +21,19 @@ pub struct IP {
     /// ip header: using unit word = 32bit, value 5 is most common cases in real life
     /// means that 5 x 32 = 20 x 8, 20 bytes, and therefore no options.
     /// options field itself can be of maximum 40 bytes, (ihl while be 15 = 60bytes)
-    pub ihl_v: u8,
+    pub ihl_v: HLV,
 
     /// type of service
-    pub tos: u8,
+    pub tos: ToS,
 
     /// the datagram length.
     ///
     /// the max value are 65536 bytes theoretically, typically however,
     /// the largest size is 1500 bytes.
-    pub len: u16,
+    pub len: PL,
 
     /// packet id, help in the reassembly of packets.
-    pub id: u16,
+    pub id: U16N,
 
     /// fragment offset && frag_flag of the packet in the data stream
     ///
@@ -43,24 +43,35 @@ pub struct IP {
     /// time to live
     pub ttl: u8,
 
-    pub protocol: u8,
+    pub protocol: Protocol,
 
     /// IP header checksum
     pub checksum: u16,
 
-    pub ip_src: u32,
-    pub ip_dst: u32,
+    pub ip_src: InAddrN,
+    pub ip_dst: InAddrN,
 
     // Options start here ...
 }
 
 
 
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //// View Struct
 
-#[repr(transparent)]
-pub struct ToS(u8);
+deftransparent! {
+    /// IP Header Len and Version
+    pub struct HLV(u8);
+
+    pub struct ToS(u8);
+
+    /// Network bytes order
+    pub struct FragOff(u16);
+
+    pub struct PL(U16N);
+}
 
 
 /// Occupy high 6 bits
@@ -118,7 +129,6 @@ pub enum DS {
     ///
     /// from RFC5865, assigned by IANA(Inernet Assigned Numbers Authority)
     VoiceAdmit = 0b101_10_0
-
 }
 
 
@@ -161,7 +171,7 @@ pub enum FragFlag {
 
 defraw! {
     #[repr(u8)]
-    #[derive(PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
     pub enum Protocol {
         #[default]
         /// 0x00 IPv6 Hop by Hop Options
@@ -638,6 +648,32 @@ impl From<u8> for ECN {
     }
 }
 
+impl FragOff {
+    /// frag_off (x8 bytes) && frag_flag
+    pub fn new(fragflag: FragFlag, off: u16) -> Self {
+        Self(unsafe {
+            htons((fragflag as u16) << 13 | off)
+        })
+    }
+
+    pub fn get_frag_flag(&self) -> FragFlag {
+        FragFlag::from(
+            unsafe { ((ntohs(self.0) & 0xE000) >> 13) as u8 }
+        )
+    }
+
+    /// as 8 bytes
+    pub fn get_frag_off(&self) -> u16 {
+        unsafe { ntohs(self.0) & 0x1FFF  }
+    }
+
+    /// as bytes
+    pub fn get_frag_off_size(&self) -> u16 {
+        self.get_frag_off() * 8
+    }
+}
+
+
 impl From<u8> for FragFlag {
     fn from(val: u8) -> Self {
         unsafe { std::mem::transmute(val) }
@@ -659,6 +695,12 @@ impl ToS {
     }
 }
 
+impl Debug for ToS {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({:?}, {:?})", self.get_ds(), self.get_ecn())
+    }
+}
+
 impl Into<u8> for ToS {
     fn into(self) -> u8 {
         unsafe { transmute(self) }
@@ -671,100 +713,102 @@ impl From<u8> for Protocol {
     }
 }
 
-impl IP {
 
+impl HLV {
     /// ihl default unit of 4 bytes
     ///
     /// v default 4
-    pub fn ihl_v(ihl: u8, v: u8) -> u8 {
-        if cfg!(target_endian="little") {
+    pub fn new(ihl: u8, v: u8) -> Self {
+        Self(if cfg!(target_endian="little") {
              ihl | (v << 4)
         }
         else {
             debug_assert!(cfg!(target_endian="big"));
 
             (ihl << 4) | v
-        }
+        })
+    }
+
+    /// bytes
+    pub fn get_hdrsize(&self) -> usize {
+        (self.get_ihl() * 4) as usize
     }
 
     /// number of word (4 bytes)
     pub fn get_ihl(&self) -> u8 {
         if cfg!(target_endian="little") {
-            self.ihl_v & 0x0F
+            self.0 & 0x0F
         }
        else {
            debug_assert!(cfg!(target_endian="big"));
 
-           self.ihl_v >> 4
+           self.0 >> 4
        }
-    }
-
-    pub fn get_hdrsize(&self) -> usize {
-        (self.get_ihl() * 4) as usize
     }
 
     pub fn get_version(&self) -> u8 {
         if cfg!(target_endian="little") {
-            self.ihl_v >> 4
+            self.0 >> 4
         }
         else {
            debug_assert!(cfg!(target_endian="big"));
 
-           self.ihl_v & 0x0F
+           self.0 & 0x0F
        }
     }
 
-    pub fn get_tos(&self) -> ToS {
-        ToS(self.tos)
+}
+
+
+impl Debug for HLV {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(v{},{} bytes)", self.get_version(), self.get_hdrsize())
+    }
+}
+
+impl PL {
+    pub fn native(&self) -> u16 {
+        self.0.native()
     }
 
+    /// package len as bytes
+    pub fn pack_len(&self) -> u32 {
+        self.0.native() as u32 * 8
+    }
+
+    pub fn from_native(v: u16) -> Self {
+        Self( U16N::from_native(v) )
+    }
+}
+
+impl Debug for PL {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} bytes", self.pack_len())
+    }
+}
+
+
+impl IP {
     pub fn get_protocol(&self) -> Protocol {
         Protocol::from(self.protocol)
     }
 
     pub fn get_src_ip(&self) -> Ipv4Addr {
-        Ipv4Addr::from(unsafe { ntohl(self.ip_src) })
+        self.ip_src.into()
     }
 
     pub fn get_dst_ip(&self) -> Ipv4Addr {
-        Ipv4Addr::from(unsafe { ntohl(self.ip_dst) })
-    }
-
-    pub fn get_packet_len(&self) -> usize {
-        unsafe { ntohs(self.len) as usize }
-    }
-
-    pub fn get_frag_flag(&self) -> FragFlag {
-        FragFlag::from(
-            unsafe { ((ntohs(self.frag_off) & 0xE000) >> 13) as u8 }
-        )
-    }
-
-    /// as 8 bytes
-    pub fn get_frag_off(&self) -> u16 {
-        unsafe { ntohs(self.frag_off) & 0x1FFF  }
-    }
-
-    /// as bytes
-    pub fn get_frag_off_size(&self) -> u16 {
-        self.get_frag_off() * 8
-    }
-
-    /// frag_off (x8 bytes) && frag_flag
-    pub fn frag_off(fragflag: FragFlag, off: u16) -> u16 {
-        unsafe {
-            htons((fragflag as u16) << 13 | off)
-        }
+        self.ip_dst.into()
     }
 
     /// Used for calc checksum for UDP/TCP
     pub unsafe fn write_pseudo_iphdr(&self, buf: &mut [u8], payload_len: u16) {
         let mut p = buf.as_mut_ptr();
 
-        write(p as *mut u32, self.ip_src);
+        write(p as *mut u32, transmute(self.ip_src));
         p = p.add(4);
 
-        write(p as *mut u32, self.ip_dst);
+        write(p as *mut u32, transmute(self.ip_dst));
         p = p.add(4);
 
         write(p, 0);

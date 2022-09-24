@@ -15,16 +15,16 @@ use libc::{
     c_void, getpid, sendto, sockaddr, sockaddr_in, socket, AF_INET, SOCK_RAW,
 };
 use netlib::{
-    aux::{htonl, htons, ntohl, random_u16, HostOrIPv4, random_u32},
+    aux::{htons, ntohl, random_u16, HostOrIPv4, random_u32},
     bincode_options,
-    data::SockAddrIn,
+    data::{SockAddrIn, InAddrN},
     err::ErrNo,
     error::NetErr,
     network::{
         inet_cksum,
-        ip::{Protocol, IP},
+        ip::{Protocol, IP, HLV, ToS, PL},
     },
-    transport::tcp::{TCP, TcpFlag},
+    transport::tcp::{TCP, TcpFlag}, view::U16N,
 };
 
 const IPSZ: usize = size_of::<IP>();
@@ -46,16 +46,16 @@ pub unsafe fn quick_send_syn(
     /* SET IP HEADER */
     let mut iphdr = IP {
         // 5 * 4 = 20 bytes, ipv4
-        ihl_v: IP::ihl_v(5, 4),
-        tos: 0,
-        len: htons(PACKAGE_SIZE as u16),
-        id: htons(getpid() as u16),
+        ihl_v: HLV::new(5, 4),
+        tos: ToS::default(),
+        len: PL::from_native(PACKAGE_SIZE as u16),
+        id: U16N::from_native(getpid() as u16),
         frag_off: 0,
         ttl: 200,
-        protocol: Protocol::TCP as u8,
+        protocol: Protocol::TCP,
         checksum: 0,
-        ip_src: htonl(ip_src),
-        ip_dst: dst.sin_addr.s_addr,
+        ip_src: InAddrN::from_native_u32(ip_src),
+        ip_dst: InAddrN::from_native_sockaddr_in(dst)
     };
     config
         .serialize_into(&mut sendbuf[..IPSZ], &iphdr)

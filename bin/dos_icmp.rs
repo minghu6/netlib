@@ -12,14 +12,14 @@ use bincode::{options, Options};
 use clap::Parser;
 use libc::{getpid, sockaddr_in, socket, AF_INET, SOCK_RAW, sendto, c_void, sockaddr};
 use netlib::{
-    aux::{htons, random, HostOrIPv4, htonl, ntohl},
+    aux::{htons, random, HostOrIPv4, ntohl},
     bincode_options,
-    data::SockAddrIn,
+    data::{SockAddrIn, InAddrN},
     error::NetErr,
     network::{
         icmp::{ICMPType, ICMP},
-        ip::{Protocol, IP}, inet_cksum,
-    }, err::ErrNo,
+        ip::{Protocol, IP, HLV, ToS, PL}, inet_cksum,
+    }, err::ErrNo, view::U16N,
 };
 
 const PACKAGE_SIZE: usize = size_of::<IP>() + size_of::<ICMP>() + 64;
@@ -32,16 +32,16 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
 
     let mut iphdr = IP {
         // 5 * 4 = 20 bytes, ipv4
-        ihl_v: IP::ihl_v(5, 4),
-        tos: 0,
-        len: htons(PACKAGE_SIZE as u16),
-        id: htons(getpid() as u16),
+        ihl_v: HLV::new(5, 4),
+        tos: ToS::default(),
+        len: PL::from_native(PACKAGE_SIZE as u16),
+        id: U16N::from_native(getpid() as u16),
         frag_off: 0,
         ttl: 200,
-        protocol: Protocol::ICMP as u8,
+        protocol: Protocol::ICMP,
         checksum: 0,
-        ip_src: htonl(ip_src),
-        ip_dst: dst.sin_addr.s_addr,
+        ip_src: InAddrN::from_native_u32(ip_src),
+        ip_dst: InAddrN::from_native_u32(dst.sin_addr.s_addr),
     };
     config
     .serialize_into(&mut sendbuf[..size_of::<IP>()], &iphdr)

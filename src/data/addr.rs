@@ -1,11 +1,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// Data Structures
 
-use std::{net::Ipv4Addr, mem::transmute};
+use std::{net::Ipv4Addr, mem::transmute, fmt::Debug};
 
-use libc::sockaddr_in;
+use libc::{sockaddr_in};
+use serde::{Serialize, Deserialize};
 
-use crate::{aux::{htonl, ntohl, ntohs}, defraw};
+use crate::aux::{htonl, ntohl, ntohs};
 
 /// Synonym libc::sockaddr_in
 #[repr(C)]
@@ -35,23 +36,45 @@ pub enum SAFamily {
     Packet = 17,
 }
 
-defraw! {
-    /// Network bytes order
-    pub struct InAddrN(u32);
-}
 
-/// Native bytes order
-pub struct InAddr(pub u32);
+/// Network bytes order
+#[repr(C)]
+#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+pub struct InAddrN(u32);
+
+// /// Native bytes order
+// pub struct InAddr(pub u32);
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Implementations
 
-impl From<InAddr> for InAddrN {
-    fn from(addr: InAddr) -> Self {
-        Self (unsafe { htonl(addr.0) })
+
+impl Into<Ipv4Addr> for InAddrN {
+    fn into(self) -> Ipv4Addr {
+        Ipv4Addr::from(unsafe { ntohl(self.0) })
     }
 }
+
+impl InAddrN {
+    pub fn from_native_u32(v: u32) -> Self {
+        Self (unsafe { htonl(v) })
+    }
+
+    pub fn from_native_sockaddr_in(v: sockaddr_in) -> Self {
+        Self::from_native_u32(v.sin_addr.s_addr)
+    }
+}
+
+
+impl Debug for InAddrN {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let addr: Ipv4Addr = (*self).into();
+        write!(f, "{addr:?}")
+    }
+}
+
+
 
 
 impl From<Ipv4Addr> for SockAddrIn {

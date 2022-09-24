@@ -1,9 +1,30 @@
 use std::fmt::Debug;
 
+use crate::{deftransparent, aux::{ntohs, htons}};
 
-#[derive(Clone, Copy, Default)]
-#[repr(transparent)]
-pub struct Hex8(pub u8);
+
+deftransparent! {
+    pub struct Hex8(u8);
+    pub struct U16N(u16);
+}
+
+
+
+impl U16N {
+    pub fn from_native(v: u16) -> Self {
+        Self (unsafe { htons(v) })
+    }
+
+    pub fn native(&self) -> u16 {
+        unsafe { ntohs(self.0) }
+    }
+}
+
+impl Debug for U16N {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.native())
+    }
+}
 
 
 impl Debug for Hex8 {

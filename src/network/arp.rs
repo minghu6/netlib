@@ -9,7 +9,7 @@ use crate::{
 //// Structure
 
 defraw! {
-    /// Address Resolution Protocol
+    /// Address Resolution Protocol (over IPv4)
     pub struct ARP {
         hrd: HT,
         proto: Protocol,
@@ -19,7 +19,9 @@ defraw! {
         pln: u8,
         op: ARPOp,
         sha: Mac,
-        sip: InAddrN
+        sip: InAddrN,
+        tha: Mac,
+        tip: InAddrN
     }
 
 }

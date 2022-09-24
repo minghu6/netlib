@@ -83,3 +83,7 @@ path="bin/tcp_client_c0.rs"
 [[example]]
 name="shttpd"
 path="bin/shttpd/main.rs"
+
+[[example]]
+name = "arp"
+path = "bin/arp.rs"
