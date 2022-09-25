@@ -17,16 +17,19 @@ use std::{
 use bincode::{options, Options};
 use clap::Parser;
 use libc::{
-    __errno_location, c_void, fd_set, getpid, recv, select, sendto, setsockopt,
-    sockaddr, sockaddr_in, socket, timeval, AF_INET, EINTR, FD_SET, FD_ZERO,
-    IPPROTO_IP, IP_MULTICAST_IF, IP_MULTICAST_TTL, IP_TTL, SOCK_RAW, SOL_SOCKET, SO_BROADCAST, SO_RCVBUF,
+    __errno_location, c_void, fd_set, getpid, recv, select, sendto,
+    setsockopt, sockaddr, sockaddr_in, socket, timeval, AF_INET, AF_PACKET,
+    EINTR, FD_SET, FD_ZERO, IPPROTO_IP, IP_MULTICAST_IF, IP_MULTICAST_TTL,
+    IP_TTL, SOCK_RAW, SOL_SOCKET, SO_BROADCAST, SO_RCVBUF,
 };
 use netlib::{
     aux::HostOrIPv4,
     bincode_options,
-    data::SockAddrIn,
+    data::{SockAddrIn, SockAddrLL},
+    datalink::{EthTypeE, EthTypeN, PacType},
     defe,
     network::{
+        arp::ARPHTE,
         icmp::{ICMPType, ICMP},
         inet_cksum,
         ip::{Protocol, IP},
@@ -45,9 +48,16 @@ struct Cli {
 }
 
 
-fn send_arp() {
-
-
+fn send_arp(ifindex: i32) {
+    let sockaddr = SockAddrLL {
+        family: AF_PACKET as u16,
+        proto: EthTypeE::ARP.net(),
+        ifindex,
+        hatype: ARPHTE::Ethernet10Mb.net(),
+        pkttype: PacType::Broadcast,
+        halen: todo!(),
+        addr: todo!(),
+    };
 }
 
 

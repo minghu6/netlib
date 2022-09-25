@@ -7,7 +7,9 @@ use libc::sockaddr_in;
 
 use crate::{
     aux::{htonl, ntohl},
+    datalink::{EthTypeN, PacType},
     defraw, deftransparent,
+    network::arp::ARPHT,
     view::U16N,
 };
 
@@ -19,9 +21,11 @@ defraw! {
         port: U16N,
         /// IPv4 Address
         addr: InAddrN,
-        _zero_pading: [u8; 8],
+        zero_pading: [u8; 8],
     }
+}
 
+defraw! {
     #[repr(u16)]
     /// Some field has been elimited, from x86_64 linux gnu
     pub enum SAFamily {
@@ -37,6 +41,19 @@ defraw! {
         /// AF_PACKET 17 (rx/tx raw packets at the Layer 2)
         Packet = 17,
     }
+
+
+
+    pub struct SockAddrLL {
+        family: u16,
+        proto: EthTypeN,
+        ifindex: i32,
+        hatype: ARPHT,
+        pkttype: PacType,
+        halen: u8,
+        addr: [u8; 8]
+    }
+
 }
 
 
@@ -46,7 +63,6 @@ deftransparent! {
     pub struct InAddrN(u32);
 }
 
-pub struct SockAddrLL {}
 
 // /// Native bytes order
 // pub struct InAddr(pub u32);
@@ -76,7 +92,6 @@ impl InAddrN {
     }
 }
 
-
 impl Debug for InAddrN {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let addr: Ipv4Addr = (*self).into();
@@ -84,16 +99,13 @@ impl Debug for InAddrN {
     }
 }
 
-
-
-
 impl From<Ipv4Addr> for SockAddrIn {
     fn from(ipv4: Ipv4Addr) -> Self {
         Self {
             family: SAFamily::Inet,
             port: U16N::default(),
             addr: InAddrN::from_ipv4addr(ipv4),
-            _zero_pading: [0; 8],
+            zero_pading: [0; 8],
         }
     }
 }

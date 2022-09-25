@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, mem::transmute};
 
 use super::ip::Protocol;
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
 defraw! {
     /// Address Resolution Protocol (over IPv4)
     pub struct ARP {
-        hrd: HT,
+        hrd: ARPHT,
         proto: Protocol,
         /// Hardware Length
         hln: u8,
@@ -34,7 +34,7 @@ defraw! {
 deftransparent! {
     /// Hardware Type Network bytes order defined by
     /// [IANA](https://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml#arp-parameters-2)
-    pub struct HT(u16);
+    pub struct ARPHT(u16);
     pub struct ARPOp(u8);
 }
 
@@ -44,7 +44,7 @@ enum_try_from_int! {
     #[non_exhaustive]
     #[allow(non_camel_case_types)]
     #[derive(Debug)]
-    pub enum HTE {
+    pub enum ARPHTE {
         Reserved0 = 0,
         Ethernet10Mb = 1,
         ExptEher3Mb = 2,
@@ -95,10 +95,7 @@ enum_try_from_int! {
 
         ReservedFF = 0xFF
     }
-}
 
-
-enum_try_from_int! {
     #[repr(u8)]
     #[derive(Debug)]
     pub enum ARPOpE {
@@ -112,9 +109,9 @@ enum_try_from_int! {
 ////////////////////////////////////////////////////////////////////////////////
 //// Implementation
 
-impl Debug for HT {
+impl Debug for ARPHT {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match HTE::try_from(unsafe { htons(self.0) }) {
+        match ARPHTE::try_from(unsafe { htons(self.0) }) {
             Ok(enum_) => write!(f, "{enum_:?}"),
             Err(err) => write!(f, "Unassigned({err})"),
         }
@@ -127,6 +124,18 @@ impl Debug for ARPOp {
             Ok(enum_) => write!(f, "{enum_:?}"),
             Err(err) => write!(f, "Invalid ({err})"),
         }
+    }
+}
+
+impl ARPHT {
+    pub fn new(v: u16) -> Self {
+        Self(unsafe { htons(v) })
+    }
+}
+
+impl ARPHTE {
+    pub fn net(self) -> ARPHT {
+        ARPHT::new(unsafe { transmute(self) })
     }
 }
 

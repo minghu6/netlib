@@ -107,23 +107,37 @@ macro_rules! __defraw {
         $(#[$outter])*
         pub struct $i {
             $(
-                $( #[$inner] )*
+                $(#[$inner])*
                 pub $field_name : $ty
             ),*
         }
 
         $crate::defraw!($($rem)*);
     );
-    ($(#[$outter:meta])* pub struct $i:ident ( $ty:ty ) $($rem:tt)*) => (
+    ($(#[$outter:meta])* pub struct $i:ident ( $ty:ty ); $($rem:tt)*) => (
         #[repr(C)]
         $(#[$outter])*
         pub struct $i ( pub $ty );
 
         $crate::defraw!($($rem)*);
     );
-    ($(#[$outter:meta])* pub enum $i:ident { $($field:tt)* } $($rem:tt)*) => (
+    (
+        $(#[$outter:meta])*
+        pub enum $i:ident {
+            $(
+                $(#[$inner:meta])*
+                $key:ident $(= $value:expr)?
+            ),* $(,)?
+        }
+        $($rem:tt)*
+    ) => (
         $(#[$outter])*
-        pub enum $i { $($field)* }
+        pub enum $i {
+            $(
+                $(#[$inner])*
+                $key $(= $value)?
+            ),*
+        }
 
         $crate::defraw!($($rem)*);
     );
@@ -148,7 +162,7 @@ macro_rules! deftransparent {
 
 #[macro_export]
 macro_rules! enum_try_from_int {
-    (
+    ($(
         #[repr($T: ident)]
         $( #[$outter: meta] )*
         $vis: vis enum $Name: ident {
@@ -156,9 +170,9 @@ macro_rules! enum_try_from_int {
                 $( #[$inner: meta] )*
                 $Variant: ident = $value: expr
             ),*
-            $( , )?
+            $(,)?
         }
-    ) => {
+    )*) => {$(
         #[repr($T)]
         $( #[$outter] )*
         $vis enum $Name {
@@ -180,7 +194,7 @@ macro_rules! enum_try_from_int {
                 }
             }
         }
-    }
+    )*}
 }
 
 
