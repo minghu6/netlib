@@ -81,7 +81,8 @@ macro_rules! defe {
 macro_rules! defraw {
     ($(#[$outter:meta])* pub $t:ident $i:ident $($rem:tt)*) => (
         $crate::__defraw!(
-            #[derive(Default, Clone, Copy, Debug)]
+            #[derive(Default, Clone, Copy, Debug, Eq, PartialEq, Hash,
+                serde::Serialize, serde::Deserialize,)]
             #[allow(deprecated, non_camel_case_types)]
             $(#[$outter])* pub $t $i $($rem)*
         );
@@ -135,7 +136,8 @@ macro_rules! __defraw {
 macro_rules! deftransparent {
     ($(#[$outter:meta])* pub struct $i:ident ( $ty:ty ) ; $($rem:tt)*) => (
         #[repr(C)]
-        #[derive(Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
+        #[derive(Clone, Copy, Default, Hash, PartialEq, Eq,
+            serde::Serialize, serde::Deserialize,)]
         $(#[$outter])*
         pub struct $i (pub $ty);
         deftransparent!($($rem)*);

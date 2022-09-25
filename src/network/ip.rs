@@ -171,7 +171,6 @@ pub enum FragFlag {
 
 defraw! {
     #[repr(u8)]
-    #[derive(PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
     pub enum Protocol {
         #[default]
         /// 0x00 IPv6 Hop by Hop Options

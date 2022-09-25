@@ -7,16 +7,20 @@ use std::{mem::size_of, ptr::null_mut, thread};
 
 use libc::{
     accept, bind, epoll_create, epoll_create1, epoll_ctl, epoll_event,
-    epoll_wait, sockaddr, sockaddr_in, socket, socketpair, AF_INET, EPOLLIN,
-    EPOLL_CTL_ADD, SOCK_RAW, in_addr, INADDR_ANY, socklen_t,
+    epoll_wait, in_addr, sockaddr, sockaddr_in, socket, socketpair, socklen_t,
+    AF_INET, EPOLLIN, EPOLL_CTL_ADD, INADDR_ANY, SOCK_RAW,
 };
 
 use crate::{
     aux::{gen_counter, CounterType},
+    data::SAFamily,
     defe,
-    network::{ip::{FragFlag, Protocol, ToS, DS, ECN, IP}, getifaddrs},
+    error::*,
+    network::{
+        ip::{FragFlag, Protocol, ToS, DS, ECN, IP},
+        r#if::getifaddrs,
+    },
     throw_errno,
-    error::*, data::SAFamily,
 };
 
 // #[inline]
@@ -54,40 +58,37 @@ pub static mut GEN_IP_ID: fn() -> u16 = || unsafe {
     old
 };
 
-/// (send, recv)
-///
-/// Both of them bind addr in advance so that we wouldnt use addr in another place.
-pub unsafe fn init_socket_pair() -> Result<(i32, i32)> {
-    let tx = throw_errno!(
-        socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32)
-        throws CreateRawSocket
-    );
+// /// (send, recv)
+// ///
+// /// Both of them bind addr in advance so that we wouldnt use addr in another place.
+// pub unsafe fn init_socket_pair() -> Result<(i32, i32)> {
+//     let tx = throw_errno!(
+//         socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32)
+//         throws CreateRawSocket
+//     );
 
-    let rx = throw_errno!(
-        socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32)
-        throws CreateRawSocket
-    );
+//     let rx = throw_errno!(
+//         socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32)
+//         throws CreateRawSocket
+//     );
 
-    let ifaddr = getifaddrs().unwrap().get_sockaddr_in().unwrap();
+//     let ifaddr = getifaddrs().unwrap().get_sockaddr_in().unwrap();
 
-    let mut addr_local = sockaddr_in {
-        sin_family: SAFamily::Inet as u16,
-        sin_port: 0,
-        sin_addr: in_addr {
-            // s_addr: 0,
-            s_addr: ifaddr.addr,
-        },
-        sin_zero: [0; 8],
-    };
+//     let mut addr_local = sockaddr_in {
+//         sin_family: SAFamily::Inet as u16,
+//         sin_port: 0,
+//         sin_addr: ifaddr.addr,
+//         sin_zero: [0; 8],
+//     };
 
-    throw_errno!(bind(
-        tx,
-        &mut addr_local as *mut sockaddr_in as *mut sockaddr,
-        size_of::<sockaddr_in>() as u32
-    ) throws Bind);
+//     throw_errno!(bind(
+//         tx,
+//         &mut addr_local as *mut sockaddr_in as *mut sockaddr,
+//         size_of::<sockaddr_in>() as u32
+//     ) throws Bind);
 
-    Ok((tx, rx))
-}
+//     Ok((tx, rx))
+// }
 
 
 pub unsafe fn shakehand(sock_send: i32, sock_recv: i32) -> Result<()> {
@@ -111,7 +112,10 @@ pub unsafe fn shakehand(sock_send: i32, sock_recv: i32) -> Result<()> {
 }
 
 
-pub async unsafe fn listen_socket(sock_local: i32, mut addr_remote: sockaddr_in) -> Result<i32> {
+pub async unsafe fn listen_socket(
+    sock_local: i32,
+    mut addr_remote: sockaddr_in,
+) -> Result<i32> {
     // let epfd = throw_errno!(epoll_create1(0) throws TcpImpError::CreateEpollFailed);
 
     // let ev = epoll_event {
@@ -155,11 +159,14 @@ pub async unsafe fn listen_socket(sock_local: i32, mut addr_remote: sockaddr_in)
 
 #[cfg(test)]
 mod tests {
-    use libc::{sockaddr_in, INADDR_ANY, in_addr, INADDR_LOOPBACK};
+    use libc::{in_addr, sockaddr_in, INADDR_ANY, INADDR_LOOPBACK};
 
-    use crate::{data::SAFamily, network::{getsockname_sockaddr_in, getifaddrs, ip::Protocol}, aux::htonl};
-
-    use super::init_socket_pair;
+    // use super::init_socket_pair;
+    use crate::{
+        aux::htonl,
+        data::SAFamily,
+        network::{getsockname_sockaddr_in, ip::Protocol, r#if::getifaddrs},
+    };
 
 
     #[test]
@@ -175,13 +182,12 @@ mod tests {
                 sin_zero: [0; 8],
             };
 
-            let (tx, rx) = init_socket_pair().unwrap();
+            // let (tx, rx) = init_socket_pair().unwrap();
 
-            let tx_addr = getsockname_sockaddr_in(tx).unwrap();
-            let rx_addr = getsockname_sockaddr_in(rx).unwrap();
+            // let tx_addr = getsockname_sockaddr_in(tx).unwrap();
+            // let rx_addr = getsockname_sockaddr_in(rx).unwrap();
 
-            println!("tx: {tx_addr:#?}, rx: {rx_addr:#?}");
+            // println!("tx: {tx_addr:#?}, rx: {rx_addr:#?}");
         }
-
     }
 }

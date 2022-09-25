@@ -31,3 +31,6 @@ run_tcp_client_c0:
 
 run_shttpd:
 	@ cargo run --example shttpd -- -c res/shttpd/shttpd.user.yaml
+
+run_arp:
+	@ cargo run --example arp

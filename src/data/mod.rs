@@ -1,5 +1,5 @@
 pub mod addr;
-pub mod link;
+pub mod netlink;
 
 pub use addr::*;
-pub use link::*;
+pub use netlink::*;

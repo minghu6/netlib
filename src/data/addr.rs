@@ -1,46 +1,52 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// Data Structures
 
-use std::{net::Ipv4Addr, mem::transmute, fmt::Debug};
+use std::{fmt::Debug, mem::transmute, net::Ipv4Addr};
 
-use libc::{sockaddr_in};
-use serde::{Serialize, Deserialize};
+use libc::sockaddr_in;
 
-use crate::aux::{htonl, ntohl, ntohs};
+use crate::{
+    aux::{htonl, ntohl},
+    defraw, deftransparent,
+    view::U16N,
+};
 
-/// Synonym libc::sockaddr_in
-#[repr(C)]
-#[derive(Clone, Copy, Eq, PartialEq, Hash)]
-pub struct SockAddrIn {
-    pub family: SAFamily,
-    pub port: u16,
-    /// IPv4 Address
-    pub addr: u32,
-    zero_pading: [u8; 8],
+
+defraw! {
+    /// Synonym libc::sockaddr_in
+    pub struct SockAddrIn {
+        family: SAFamily,
+        port: U16N,
+        /// IPv4 Address
+        addr: InAddrN,
+        _zero_pading: [u8; 8],
+    }
+
+    #[repr(u16)]
+    /// Some field has been elimited, from x86_64 linux gnu
+    pub enum SAFamily {
+        /// AF_UNSPEC 0
+        #[default]
+        UnSpec,
+        /// AF_LOCAL (including synonym AF_UNIX, AF_FILE) 1
+        Local = 1,
+        /// AF_INET 2 (sockaddr_in, ipv4)
+        Inet = 2,
+        /// AF_INET 10
+        Inet6 = 10,
+        /// AF_PACKET 17 (rx/tx raw packets at the Layer 2)
+        Packet = 17,
+    }
 }
 
 
-/// Some field has been elimited, from x86_64 linux gnu
-#[repr(u16)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum SAFamily {
-    /// AF_UNSPEC 0
-    UnSpec,
-    /// AF_LOCAL (including synonym AF_UNIX, AF_FILE) 1
-    Local = 1,
-    /// AF_INET 2 (sockaddr_in, ipv4)
-    Inet = 2,
-    /// AF_INET 10
-    Inet6 = 10,
-    /// AF_PACKET 17 (rx/tx raw packets at the Layer 2)
-    Packet = 17,
+
+deftransparent! {
+    /// Network bytes order
+    pub struct InAddrN(u32);
 }
 
-
-/// Network bytes order
-#[repr(C)]
-#[derive(Clone, Copy, Default, Serialize, Deserialize)]
-pub struct InAddrN(u32);
+pub struct SockAddrLL {}
 
 // /// Native bytes order
 // pub struct InAddr(pub u32);
@@ -58,11 +64,15 @@ impl Into<Ipv4Addr> for InAddrN {
 
 impl InAddrN {
     pub fn from_native_u32(v: u32) -> Self {
-        Self (unsafe { htonl(v) })
+        Self(unsafe { htonl(v) })
     }
 
     pub fn from_native_sockaddr_in(v: sockaddr_in) -> Self {
         Self::from_native_u32(v.sin_addr.s_addr)
+    }
+
+    pub fn from_ipv4addr(addr: Ipv4Addr) -> Self {
+        Self::from_native_u32(addr.into())
     }
 }
 
@@ -81,9 +91,9 @@ impl From<Ipv4Addr> for SockAddrIn {
     fn from(ipv4: Ipv4Addr) -> Self {
         Self {
             family: SAFamily::Inet,
-            port: 0,
-            addr: unsafe { htonl(ipv4.into()) },
-            zero_pading: [0; 8],
+            port: U16N::default(),
+            addr: InAddrN::from_ipv4addr(ipv4),
+            _zero_pading: [0; 8],
         }
     }
 }
@@ -101,18 +111,17 @@ impl From<sockaddr_in> for SockAddrIn {
 }
 
 
-impl std::fmt::Debug for SockAddrIn {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        unsafe {
-            f.debug_struct("SockAddrIn")
-            .field("family", &self.family)
-            .field("port", &ntohs(self.port))
-            .field("addr", &Ipv4Addr::from(ntohl(self.addr)))
-            .finish()
-        }
-    }
-}
-
+// impl std::fmt::Debug for SockAddrIn {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         unsafe {
+//             f.debug_struct("SockAddrIn")
+//                 .field("family", &self.family)
+//                 .field("port", &self.port)
+//                 .field("addr", &self.addr)
+//                 .finish()
+//         }
+//     }
+// }
 
 
 
@@ -120,15 +129,29 @@ impl std::fmt::Debug for SockAddrIn {
 #[allow(unused_imports)]
 #[cfg(test)]
 mod tests {
-    use std::{mem::size_of, net::Ipv4Addr, mem::transmute, ffi::{CString, CStr}};
+    use std::{
+        ffi::{CStr, CString},
+        mem::size_of,
+        mem::transmute,
+        net::Ipv4Addr,
+    };
 
-    use libc::{c_void, socklen_t, c_int, hostent, sockaddr_in, AF_INET, free};
+    use libc::{
+        c_int, c_void, free, hostent, sockaddr_in, socklen_t, AF_INET,
+    };
 
-    use crate::{data::{SockAddrIn, SAFamily}, aux::{inet_addr, inet_ntoa, htonl}};
+    use crate::{
+        aux::{htonl, inet_addr, inet_ntoa},
+        data::{SAFamily, SockAddrIn},
+    };
 
     #[allow(unused)]
     extern "C" {
-        fn gethostbyaddr(addr: *const c_void, len: socklen_t, ty: c_int) -> *mut hostent;
+        fn gethostbyaddr(
+            addr: *const c_void,
+            len: socklen_t,
+            ty: c_int,
+        ) -> *mut hostent;
         fn __h_errno_location() -> *mut c_int;
     }
 
@@ -146,16 +169,18 @@ mod tests {
             let sockaddr2 = sockaddr_in {
                 sin_family: AF_INET as u16,
                 sin_port: 0,
-                sin_addr: libc::in_addr { s_addr: htonl(ipv4.into()) },
+                sin_addr: libc::in_addr {
+                    s_addr: htonl(ipv4.into()),
+                },
                 sin_zero: [0; 8],
             };
 
             assert_eq!(sockaddr1, sockaddr2);
 
-            let caddrs_ptr = inet_ntoa(libc::in_addr { s_addr: ipv4.into() });
-            let caddrs = CStr::from_ptr(
-                caddrs_ptr
-            );
+            let caddrs_ptr = inet_ntoa(libc::in_addr {
+                s_addr: ipv4.into(),
+            });
+            let caddrs = CStr::from_ptr(caddrs_ptr);
             let addrs = caddrs.to_str().unwrap();
             println!("{}", addrs);
 
@@ -181,8 +206,6 @@ mod tests {
             // else {
             //     println!("{:#?}", &*htent)
             // }
-
         }
-
     }
 }

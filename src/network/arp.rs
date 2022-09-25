@@ -2,8 +2,12 @@ use std::fmt::Debug;
 
 use super::ip::Protocol;
 use crate::{
-    aux::htons, data::InAddrN, datalink::Mac, defraw, enum_try_from_int,
+    aux::htons,
+    data::InAddrN,
+    datalink::Mac,
+    defraw, enum_try_from_int, deftransparent,
 };
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Structure
@@ -27,11 +31,12 @@ defraw! {
 }
 
 
-/// Hardware Type Network bytes order defined by
-/// [IANA](https://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml#arp-parameters-2)
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-pub struct HT(pub u16);
+deftransparent! {
+    /// Hardware Type Network bytes order defined by
+    /// [IANA](https://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml#arp-parameters-2)
+    pub struct HT(u16);
+    pub struct ARPOp(u8);
+}
 
 
 enum_try_from_int! {
@@ -93,10 +98,6 @@ enum_try_from_int! {
 }
 
 
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-pub struct ARPOp(pub u8);
-
 enum_try_from_int! {
     #[repr(u8)]
     #[derive(Debug)]
@@ -128,3 +129,9 @@ impl Debug for ARPOp {
         }
     }
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// Function
+
+

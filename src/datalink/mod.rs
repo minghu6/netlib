@@ -1,6 +1,6 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, mem::transmute};
 
-use crate::{defraw, view::Hex8, enum_try_from_int};
+use crate::{defraw, view::Hex8, enum_try_from_int, aux::htons, deftransparent};
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -11,17 +11,18 @@ defraw! {
     pub struct Eth {
         dst: Mac,
         src: Mac,
-        proto: EthType
+        proto: EthTypeN
     }
 
     pub struct Mac ([Hex8; 6])
 }
 
 
-/// Network bytes order
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-pub struct EthType(pub u16);
+
+deftransparent! {
+    /// Network bytes order
+    pub struct EthTypeN(u16);
+}
 
 
 enum_try_from_int! {
@@ -46,7 +47,24 @@ enum_try_from_int! {
 //// Implementation
 
 
-impl Debug for EthType {
+impl EthTypeN {
+    pub fn new(tye: EthTypeE) -> Self {
+        Self(unsafe { htons(transmute(tye)) })
+    }
+
+    pub fn val(self) -> u16 {
+        self.0
+    }
+}
+
+
+impl EthTypeE {
+    pub fn net(self) -> EthTypeN {
+        EthTypeN::new(self)
+    }
+}
+
+impl Debug for EthTypeN {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match EthTypeE::try_from(self.0) {
             Ok(enum_) => write!(f, "{enum_:?}"),

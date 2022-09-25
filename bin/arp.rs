@@ -45,6 +45,11 @@ struct Cli {
 }
 
 
+fn send_arp() {
+
+
+}
+
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
