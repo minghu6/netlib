@@ -10,11 +10,18 @@ use libc::{c_char, in_addr, in_addr_t};
 #[macro_export]
 macro_rules! bincode_options {
     () => {
-        options().with_fixint_encoding().allow_trailing_bytes()
+        {
+            use bincode::{options, Options};
+
+            options()
+            .with_fixint_encoding()
+            .allow_trailing_bytes()
+        }
     };
 }
 
-/// 直接从libc::s! 偷了
+
+/// `defe` 偷自libc::s!
 
 #[macro_export]
 macro_rules! __item {
@@ -48,34 +55,6 @@ macro_rules! defe {
     );
 }
 
-// #[macro_export]
-// macro_rules! defraw {
-//     ($($(#[$outter:meta])* pub $t:ident $i:ident { $($field:tt)* })*) => ($(
-//         defraw!(it_struct: $(#[$outter])* pub $t $i { $($field)* });
-//     )*);
-//     ($($(#[$outter:meta])* pub $t:ident $i:ident ( $ty:ty ))*) => ($(
-//         defraw!(it_struct_transport: $(#[$outter])* pub $t $i ( $field ));
-//     )*);
-
-//     (it_struct: $(#[$outter:meta])* pub struct $i:ident { $($field:tt)* }) => (
-//         $crate::__item! {
-//             #[repr(C)]
-//             #[derive(Default, Clone, Copy, Debug)]
-//             #[allow(deprecated, non_camel_case_types)]
-//             $(#[$outter])*
-//             pub struct $i { $($field)* }
-//         }
-//     );
-//     (it_struct_transport: $(#[$outter:meta])* pub struct $i:ident ( $ty:ty )) => (
-//         $crate::__item! {
-//             #[repr(C)]
-//             #[derive(Default, Clone, Copy, Debug)]
-//             #[allow(deprecated, non_camel_case_types)]
-//             $(#[$outter])*
-//             pub struct $i ( $ty )
-//         }
-//     );
-// }
 
 #[macro_export]
 macro_rules! defraw {

@@ -25,19 +25,21 @@ use libc::{
 use netlib::{
     aux::HostOrIPv4,
     bincode_options,
-    data::{SockAddrIn, SockAddrLL},
-    datalink::{EthTypeE, EthTypeN, PacType},
+    data::{SockAddrIn, SockAddrLL, InAddrN},
+    datalink::{EthTypeE, EthTypeN, PacType, Mac, Eth},
     defe,
     network::{
-        arp::ARPHTE,
+        arp::{ARPHTE, ARP, ARPOp, ARPOpE},
         icmp::{ICMPType, ICMP},
         inet_cksum,
         ip::{Protocol, IP},
-    },
+    }, error::{ NetErr, Result }, throw_errno,
 };
 use signal_hook::consts;
 use signal_hook::flag::register;
 
+
+const BUF_SIZE: usize = 60;
 
 
 #[derive(Parser)]
@@ -48,20 +50,53 @@ struct Cli {
 }
 
 
-fn send_arp(ifindex: i32) {
+unsafe fn send_arp(sock: i32, ifindex: i32, src_mac: Mac, src_ip: InAddrN, dst_ip: InAddrN) -> Result<isize> {
     let sockaddr = SockAddrLL {
         family: AF_PACKET as u16,
         proto: EthTypeE::ARP.net(),
         ifindex,
         hatype: ARPHTE::Ethernet10Mb.net(),
         pkttype: PacType::Broadcast,
-        halen: todo!(),
-        addr: todo!(),
+        halen: size_of::<Mac>() as u8,
+        addr: src_mac.into_arr8(),
     };
+
+    let mut buf = [0u8; BUF_SIZE];
+
+    /* Init package */
+    let eth = Eth {
+        dst: Mac::broadcast(),
+        src: src_mac,
+        proto: EthTypeE::ARP.net(),
+    };
+    let arp = ARP {
+        hrd: ARPHTE::Ethernet10Mb.net(),
+        proto: EthTypeE::IPv4.net(),
+        hln: size_of::<Mac>() as u8,
+        pln: size_of::<InAddrN> as u8,
+        op: ARPOpE::Request.net(),
+        sha: src_mac,
+        sip: src_ip,
+        tha: Mac::default(),
+        tip: dst_ip,
+    };
+
+    write!(&mut buf, eth);
+
+    Ok(throw_errno!(
+        sendto(
+            sock,
+            buf.as_ptr() as *const c_void,
+            42,
+            0,
+            &sockaddr as *const SockAddrLL as *const sockaddr,
+            size_of::<SockAddrLL>() as u32
+        ) throws SendTo
+    ))
 }
 
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> std::result::Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
     let dst = cli.dst;

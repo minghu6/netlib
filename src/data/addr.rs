@@ -14,16 +14,6 @@ use crate::{
 };
 
 
-defraw! {
-    /// Synonym libc::sockaddr_in
-    pub struct SockAddrIn {
-        family: SAFamily,
-        port: U16N,
-        /// IPv4 Address
-        addr: InAddrN,
-        zero_pading: [u8; 8],
-    }
-}
 
 defraw! {
     #[repr(u16)]
@@ -42,7 +32,14 @@ defraw! {
         Packet = 17,
     }
 
-
+    /// Synonym libc::sockaddr_in
+    pub struct SockAddrIn {
+        family: SAFamily,
+        port: U16N,
+        /// IPv4 Address
+        addr: InAddrN,
+        zero_pading: [u8; 8],
+    }
 
     pub struct SockAddrLL {
         family: u16,

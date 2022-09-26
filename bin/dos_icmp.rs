@@ -6,14 +6,13 @@ use std::{
     mem::size_of,
     net::Ipv4Addr,
     str::FromStr, thread::{ self, JoinHandle },
+    ptr::write
 };
 
-use bincode::{options, Options};
 use clap::Parser;
 use libc::{getpid, sockaddr_in, socket, AF_INET, SOCK_RAW, sendto, c_void, sockaddr};
 use netlib::{
     aux::{htons, random, HostOrIPv4, ntohl},
-    bincode_options,
     data::{SockAddrIn, InAddrN},
     error::NetErr,
     network::{
@@ -28,7 +27,6 @@ static mut RAWSOCK: i32 = 0;
 
 pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), NetErr> {
     let mut sendbuf = [0u8; PACKAGE_SIZE];
-    let config = bincode_options!();
 
     let mut iphdr = IP {
         // 5 * 4 = 20 bytes, ipv4
@@ -36,18 +34,25 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
         tos: ToS::default(),
         len: PL::from_native(PACKAGE_SIZE as u16),
         id: U16N::from_native(getpid() as u16),
-        frag_off: 0,
+        frag_off: Default::default(),
         ttl: 200,
         protocol: Protocol::ICMP,
         checksum: 0,
         ip_src: InAddrN::from_native_u32(ip_src),
         ip_dst: InAddrN::from_native_u32(dst.sin_addr.s_addr),
     };
-    config
-    .serialize_into(&mut sendbuf[..size_of::<IP>()], &iphdr)
-    .or(Err(NetErr::Serialize))?;
+
+    write(
+        sendbuf[..size_of::<IP>()].as_mut_ptr() as *mut IP,
+        iphdr
+    );
 
     iphdr.checksum = inet_cksum(sendbuf.as_ptr(), size_of::<IP>());
+
+    write(
+        sendbuf[..size_of::<IP>()].as_mut_ptr() as *mut IP,
+        iphdr
+    );
 
     let ty = ICMPType::EchoRequest.into();
     let icmphdr = ICMP {
@@ -57,13 +62,10 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
         un: 0,
     };
 
-
-    config
-    .serialize_into(&mut sendbuf[..size_of::<IP>()], &iphdr)
-    .or(Err(NetErr::Serialize))?;
-    config
-    .serialize_into(&mut sendbuf[size_of::<IP>()..], &icmphdr)
-    .or(Err(NetErr::Serialize))?;
+    write(
+        sendbuf[size_of::<IP>()..].as_mut_ptr() as *mut ICMP,
+        icmphdr
+    );
 
     let size = sendto(
         RAWSOCK,

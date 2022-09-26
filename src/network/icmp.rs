@@ -1,9 +1,6 @@
 use std::error::Error;
 
-use getset::{ CopyGetters, Setters };
-use serde::{ Deserialize, Serialize };
-
-use crate::aux::{htons, ntohs};
+use crate::{aux::{htons, ntohs}, defraw};
 
 pub use super::icmp_spec::*;
 
@@ -11,19 +8,20 @@ pub use super::icmp_spec::*;
 ////////////////////////////////////////////////////////////////////////////////
 //// Data Structure
 
-/// ICMP Header
-///
-/// 8 bytes
-///
-#[repr(C)]
-#[derive(CopyGetters, Setters, Deserialize, Serialize, Debug)]
-pub struct ICMP {
-    pub ty: u8,
-    pub code: u8,
-    pub cksum: u16,
 
-    pub un: u32
-    // data ...
+defraw! {
+    /// ICMP Header
+    ///
+    /// 8 bytes
+    ///
+    pub struct ICMP {
+        ty: u8,
+        code: u8,
+        cksum: u16,
+
+        un: u32
+        // data ...
+    }
 }
 
 

@@ -1,5 +1,7 @@
 use std::{fmt::Debug, mem::transmute};
 
+use libc::{memcpy, c_void};
+
 use crate::{defraw, view::Hex8, enum_try_from_int, aux::htons, deftransparent};
 
 
@@ -36,7 +38,7 @@ defraw! {
         Outgoing = 4,
         Loopback = 5,
         User = 6,
-        Kernel = 7
+        Kernel = 7,
     }
 
 }
@@ -100,6 +102,24 @@ impl Debug for EthTypeN {
 impl Mac {
     pub fn new(p1: u8, p2: u8, p3: u8, p4: u8, p5: u8, p6: u8) -> Self {
         Self([Hex8(p1), Hex8(p2), Hex8(p3), Hex8(p4), Hex8(p5), Hex8(p6)])
+    }
+
+    pub fn broadcast() -> Self {
+        Self::new(0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
+    }
+
+    pub fn into_arr8(self) -> [u8; 8] {
+        let mut arr8 = [0u8; 8];
+
+        unsafe {
+            memcpy(
+                arr8.as_mut_ptr() as *mut c_void,
+                &self as *const Mac as *const c_void,
+                6
+            );
+        }
+
+        arr8
     }
 }
 

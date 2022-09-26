@@ -7,16 +7,15 @@ use std::{
     net::Ipv4Addr,
     str::FromStr,
     thread::{self, JoinHandle},
+    ptr::write
 };
 
-use bincode::{options, Options};
 use clap::Parser;
 use libc::{
     c_void, getpid, sendto, sockaddr, sockaddr_in, socket, AF_INET, SOCK_RAW,
 };
 use netlib::{
     aux::{htons, ntohl, random_u16, HostOrIPv4, random_u32},
-    bincode_options,
     data::{SockAddrIn, InAddrN},
     err::ErrNo,
     error::NetErr,
@@ -41,7 +40,6 @@ pub unsafe fn quick_send_syn(
     port_dst: u16,
 ) -> Result<(), NetErr> {
     let mut sendbuf = [0u8; PACKAGE_SIZE];
-    let config = bincode_options!();
 
     /* SET IP HEADER */
     let mut iphdr = IP {
@@ -50,22 +48,25 @@ pub unsafe fn quick_send_syn(
         tos: ToS::default(),
         len: PL::from_native(PACKAGE_SIZE as u16),
         id: U16N::from_native(getpid() as u16),
-        frag_off: 0,
+        frag_off: Default::default(),
         ttl: 200,
         protocol: Protocol::TCP,
         checksum: 0,
         ip_src: InAddrN::from_native_u32(ip_src),
         ip_dst: InAddrN::from_native_sockaddr_in(dst)
     };
-    config
-        .serialize_into(&mut sendbuf[..IPSZ], &iphdr)
-        .or(Err(NetErr::Serialize))?;
+
+    write(
+        sendbuf[..IPSZ].as_mut_ptr() as *mut IP,
+        iphdr
+    );
 
     iphdr.checksum = inet_cksum(sendbuf.as_ptr(), IPSZ);
 
-    config
-        .serialize_into(&mut sendbuf[..IPSZ], &iphdr)
-        .or(Err(NetErr::Serialize))?;
+    write(
+        sendbuf[..IPSZ].as_mut_ptr() as *mut IP,
+        iphdr
+    );
 
     /* SET TCP HEADER */
     let mut tcphdr = TCP {
@@ -81,18 +82,28 @@ pub unsafe fn quick_send_syn(
 
     let mut checksum_buf = [0u8; 12 + TCPSZ];
     iphdr.write_pseudo_iphdr(&mut checksum_buf, (TCPSZ + 0) as u16);
-    config
-    .serialize_into(&mut checksum_buf[12..], &tcphdr)
-    .or(Err(NetErr::Serialize))?;
+
+    write(
+        checksum_buf[12..].as_mut_ptr() as *mut TCP,
+        tcphdr
+    );
+
+    // config
+    // .serialize_into(&mut checksum_buf[12..], &tcphdr)
+    // .or(Err(NetErr::Serialize))?;
 
     tcphdr.check = inet_cksum(
         checksum_buf.as_ptr(),
         checksum_buf.len()
     );
 
-    config
-        .serialize_into(&mut sendbuf[IPSZ..], &tcphdr)
-        .or(Err(NetErr::Serialize))?;
+    write(
+        sendbuf[IPSZ..].as_mut_ptr() as *mut TCP,
+        tcphdr
+    );
+    // config
+    //     .serialize_into(&mut sendbuf[IPSZ..], &tcphdr)
+    //     .or(Err(NetErr::Serialize))?;
 
     let size = sendto(
         RAWSOCK,
@@ -104,7 +115,6 @@ pub unsafe fn quick_send_syn(
     );
 
     let src = Ipv4Addr::from(ip_src);
-    // let dst = transmute::<sockaddr_in, SockAddrIn>(dst);
     let dst = Ipv4Addr::from(ntohl(dst.sin_addr.s_addr));
 
     if size < 0 {

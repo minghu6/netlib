@@ -4,7 +4,7 @@ use std::{
     error::Error,
     mem::{size_of, zeroed},
     net::Ipv4Addr,
-    ptr::null_mut,
+    ptr::{null_mut, read, write},
     str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -14,16 +14,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use bincode::{options, Options};
 use clap::Parser;
 use libc::{
-    __errno_location, c_void, fd_set, getpid, recv, select, sendto, setsockopt,
-    sockaddr, sockaddr_in, socket, timeval, AF_INET, EINTR, FD_SET, FD_ZERO,
-    IPPROTO_IP, IP_MULTICAST_IF, IP_MULTICAST_TTL, IP_TTL, SOCK_RAW, SOL_SOCKET, SO_BROADCAST, SO_RCVBUF,
+    __errno_location, c_void, fd_set, getpid, recv, select, sendto,
+    setsockopt, sockaddr, sockaddr_in, socket, timeval, AF_INET, EINTR,
+    FD_SET, FD_ZERO, IPPROTO_IP, IP_MULTICAST_IF, IP_MULTICAST_TTL, IP_TTL,
+    SOCK_RAW, SOL_SOCKET, SO_BROADCAST, SO_RCVBUF,
 };
 use netlib::{
     aux::HostOrIPv4,
-    bincode_options,
     data::SockAddrIn,
     defe,
     network::{
@@ -32,12 +31,11 @@ use netlib::{
         ip::{Protocol, IP},
     },
 };
-use signal_hook::consts;
-use signal_hook::flag::register;
+use signal_hook::{consts, flag::register};
 
 
 ////////////////////////////////////////////////////////////////////////////////
-//// Erro
+//// Error
 
 defe! {
     pub enum PingError {
@@ -47,7 +45,7 @@ defe! {
         CreateRawSocketFailed(i32),
         UnresolvedHost(String),
         MMPoisonError,
-        DeserializeFailed
+        DeserializeFailed(String)
     }
 }
 
@@ -93,13 +91,11 @@ enum UnpackRes {
 ////////////////////////////////////////////////////////////////////////////////
 //// Implements
 
-fn icmp_pack(buf: &mut [u8], seq: u16, icmp_packet_len: u8) {
-    let config = bincode_options!();
-
+unsafe fn icmp_pack(buf: &mut [u8], seq: u16, icmp_packet_len: u8) {
     let ty: u8 = ICMPType::EchoRequest.into();
     let code = 0;
     let cksum = 0;
-    let pid = unsafe { getpid() };
+    let pid = getpid();
     let un = ICMP::un_as_echo((pid & 0xffff) as u16, seq);
 
     let mut icmp = ICMP {
@@ -115,19 +111,20 @@ fn icmp_pack(buf: &mut [u8], seq: u16, icmp_packet_len: u8) {
     //     icmp.get_idseq().1
     // );
 
-    config
-        .serialize_into(&mut buf[..size_of::<ICMP>()], &icmp)
-        .unwrap();
+    write(
+        buf[..size_of::<ICMP>()].as_mut_ptr() as *mut ICMP,
+        icmp
+    );
+
     // for i in 0..(icmp_packet_len as usize - size_of::<ICMP>()) {
     //     buf[size_of::<ICMP>() + i as usize] = i as u8; // create non-zero data to check sum
     // }
 
-    icmp.cksum =
-        unsafe { inet_cksum(buf.as_mut_ptr(), icmp_packet_len as usize) };
-
-    config
-        .serialize_into(&mut buf[..size_of::<ICMP>()], &icmp)
-        .unwrap();
+    icmp.cksum = inet_cksum(buf.as_mut_ptr(), icmp_packet_len as usize);
+    write(
+        buf[..size_of::<ICMP>()].as_mut_ptr() as *mut ICMP,
+        icmp
+    );
 }
 
 // #[allow(unused)]
@@ -175,20 +172,11 @@ unsafe fn icmp_unpack(
     buf: &mut [u8],
     packets: Arc<Mutex<Vec<PingPacket>>>,
 ) -> Result<UnpackRes, PingError> {
-    let config = bincode_options!().allow_trailing_bytes();
-
-    let iphdr: IP = config
-        .deserialize(&buf[..])
-        .or_else(|_err| Err(PingError::DeserializeFailed))?;
-    // let iphdr: IP = ptr::read (buf.as_ptr() as *const _);
+    let iphdr: IP = read(buf.as_ptr() as *const _);
 
     // println!("fragflag: {:?}, fragoff: {}, raw: {}", iphdr.get_frag_flag(), iphdr.get_frag_off(), iphdr.frag_off);
 
-    let iphdr_len = iphdr.ihl_v.get_hdrsize();
-
-    let icmphdr: ICMP = config
-        .deserialize(&buf[iphdr_len..])
-        .or_else(|_err| Err(PingError::DeserializeFailed))?;
+    let icmphdr: ICMP = read(buf[size_of::<IP>()..].as_ptr() as *const _);
 
     let (id, seq) = icmphdr.get_idseq();
     let pid = getpid();
@@ -197,9 +185,9 @@ unsafe fn icmp_unpack(
     // println!("reply seq: {:0x}, id: {:0x}, pid: {:0x}", seq, id, pid);
     // println!("reply dst: {}", Ipv4Addr::from(ntohl(iphdr.ip_dst)));
 
-    let icmp_type = icmphdr
-        .parse_cm_type()
-        .or_else(|_err| Err(PingError::DeserializeFailed))?;
+    let icmp_type = icmphdr.parse_cm_type().or_else(|err| {
+        Err(PingError::DeserializeFailed(format!("icmptype: {err:?}")))
+    })?;
 
     if icmp_type == ICMPType::EchoReply && id == (pid & 0xffff) as u16 {
         match packets.lock() {
@@ -215,7 +203,7 @@ unsafe fn icmp_unpack(
 
                 println!(
                     "{} bytes from {:#?}: icmp_seq={} ttl={} rtt={:.3} ms",
-                    iphdr.len.pack_len(),
+                    iphdr.len.native(),
                     src,
                     seq,
                     iphdr.ttl,
@@ -225,7 +213,8 @@ unsafe fn icmp_unpack(
             // 这个结构设计得，不能直接返回，真的不太行
             Err(_err) => unreachable!(),
         }
-    } else {
+    }
+    else {
         return Ok(UnpackRes::Retry);
     }
     // else just return
@@ -257,7 +246,8 @@ unsafe fn ping_once(
     if size < 0 {
         eprintln!("sendto {:#?} failed", ipv4_dst);
         return Err(PingError::SendToFailed);
-    } else {
+    }
+    else {
         // println!("send to {:#?} {} bytes", ipv4_dst, size)
     }
 
@@ -302,14 +292,17 @@ unsafe fn ping_recv_loop(
                 eprintln!("select error");
                 if init_signal_arrived.load(Ordering::Relaxed) {
                     break;
-                } else {
+                }
+                else {
                     continue;
                 }
-            } else {
+            }
+            else {
                 eprintln!("timeout");
                 if init_signal_arrived.load(Ordering::Relaxed) {
                     break;
-                } else {
+                }
+                else {
                     ping_once(rawsock, &mut send_buf, packets.clone(), dst)?;
                     continue;
                 }
@@ -329,7 +322,8 @@ unsafe fn ping_recv_loop(
             eprintln!("recvfrom error");
             if init_signal_arrived.load(Ordering::Relaxed) {
                 break;
-            } else {
+            }
+            else {
                 continue;
             }
         }
@@ -344,7 +338,8 @@ unsafe fn ping_recv_loop(
 
         if init_signal_arrived.load(Ordering::Relaxed) {
             break;
-        } else {
+        }
+        else {
             sleep(Duration::new(0, 500_000_000));
         }
         ping_once(rawsock, &mut send_buf, packets.clone(), dst)?;
@@ -511,6 +506,4 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

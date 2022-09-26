@@ -6,7 +6,7 @@ use crate::aux::{ntohl, ntohs};
 //// Data Structure
 
 #[repr(C)]
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 pub struct TCP {
     pub source: u16,
     pub dest: u16,

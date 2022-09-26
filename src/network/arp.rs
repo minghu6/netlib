@@ -1,10 +1,9 @@
 use std::{fmt::Debug, mem::transmute};
 
-use super::ip::Protocol;
 use crate::{
     aux::htons,
     data::InAddrN,
-    datalink::Mac,
+    datalink::{Mac, EthTypeN},
     defraw, enum_try_from_int, deftransparent,
 };
 
@@ -16,7 +15,7 @@ defraw! {
     /// Address Resolution Protocol (over IPv4)
     pub struct ARP {
         hrd: ARPHT,
-        proto: Protocol,
+        proto: EthTypeN,
         /// Hardware Length
         hln: u8,
         /// Protocol Address Length
@@ -34,8 +33,12 @@ defraw! {
 deftransparent! {
     /// Hardware Type Network bytes order defined by
     /// [IANA](https://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml#arp-parameters-2)
+    ///
+    /// Network bytes order
     pub struct ARPHT(u16);
-    pub struct ARPOp(u8);
+
+    /// Network bytes order
+    pub struct ARPOp(u16);
 }
 
 
@@ -96,7 +99,7 @@ enum_try_from_int! {
         ReservedFF = 0xFF
     }
 
-    #[repr(u8)]
+    #[repr(u16)]
     #[derive(Debug)]
     pub enum ARPOpE {
         Request = 1,
@@ -108,6 +111,18 @@ enum_try_from_int! {
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Implementation
+
+impl ARPOp {
+    pub fn from_native(v: u16) -> Self {
+        unsafe { Self(htons(v)) }
+    }
+}
+
+impl ARPOpE {
+    pub fn net(self) -> ARPOp {
+        ARPOp(unsafe { transmute(self) })
+    }
+}
 
 impl Debug for ARPHT {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -128,14 +143,14 @@ impl Debug for ARPOp {
 }
 
 impl ARPHT {
-    pub fn new(v: u16) -> Self {
+    pub fn from_native(v: u16) -> Self {
         Self(unsafe { htons(v) })
     }
 }
 
 impl ARPHTE {
     pub fn net(self) -> ARPHT {
-        ARPHT::new(unsafe { transmute(self) })
+        ARPHT::from_native(unsafe { transmute(self) })
     }
 }
 

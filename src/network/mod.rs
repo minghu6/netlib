@@ -17,7 +17,7 @@ pub mod icmp;
 mod icmp_spec;
 pub mod r#if;
 pub mod ip;
-
+mod ip_spec;
 
 
 /// Based from [rfc1071](https://www.rfc-editor.org/rfc/inline-errata/rfc1071.html)
