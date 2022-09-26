@@ -25,6 +25,7 @@ defe! {
         GetSockName,
         Accept,
         SendTo,
+        RecvFrom,
         GetIfAddrs,
         SocketRaw,
         Bind,
@@ -39,6 +40,8 @@ defe! {
         Write(std::io::Error),
         CreateThreadPool(std::io::Error),
         CreateDirAll(std::io::Error),
+        GetIf(String),
+        AnyWay(String),
         Bug(String)
     }
 }

@@ -26,4 +26,4 @@ run_shttpd:
 	@ cargo run --example shttpd -- -c res/shttpd/shttpd.user.yaml
 
 run_arp:
-	@ cargo run --example arp
+	@ cargo run --example arp -- baidu.com

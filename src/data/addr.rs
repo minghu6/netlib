@@ -87,7 +87,16 @@ impl InAddrN {
     pub fn from_ipv4addr(addr: Ipv4Addr) -> Self {
         Self::from_native_u32(addr.into())
     }
+
+    pub fn native(self) -> u32 {
+        unsafe { ntohl(self.0) }
+    }
+
+    pub fn ipv4(self) -> Ipv4Addr {
+        Ipv4Addr::from(self.native())
+    }
 }
+
 
 impl Debug for InAddrN {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -14,14 +14,16 @@ use crate::{
     aux::ntohl,
     data::{rtnl_link_stats, SAFamily, SockAddrIn},
     error::Result,
-    throw_errno, datalink::EthTypeE,
+    throw_errno, datalink::{EthTypeE, Mac},
 };
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Constant
 
+/* SIOC G(et) IF INDEX */
 pub const SIOCGIFINDEX: u64 = 0x8933;
+pub const SIOCGIFHWADDR: u64 = 0x8933;
 
 
 
@@ -74,6 +76,27 @@ impl IfAddrs {
 
         None
     }
+
+    pub fn get_inet_items(&self) -> impl Iterator<Item=(&str, &Ipv4Addr, &Ipv4Addr)> {
+        let mut iter = self.0.iter();
+
+        std::iter::from_fn(move || {
+            loop {
+                if let Some(item) = iter.next() {
+                    if let IfAddrItem::Inet { name, addr, mask }
+                    = item {
+                        return Some((name.as_str(), addr, mask));
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+
+            None
+        })
+    }
+
 }
 
 
@@ -149,7 +172,7 @@ pub unsafe fn getifaddrs() -> Result<IfAddrs> {
 }
 
 
-pub unsafe fn get_if_nth(ifname: &str) -> Option<i32> {
+pub unsafe fn getifnth(ifname: &str) -> Option<i32> {
     let sock = socket(AF_PACKET, SOCK_RAW, EthTypeE::AVTP.net().val() as i32);
 
     if sock <= 0 {
@@ -170,13 +193,38 @@ pub unsafe fn get_if_nth(ifname: &str) -> Option<i32> {
     Some(ifr.ifr_ifru.ifr_ifindex)
 }
 
+pub unsafe fn getifmac(ifname: &str) -> Option<Mac> {
+    let sock = socket(AF_PACKET, SOCK_RAW, EthTypeE::AVTP.net().val() as i32);
+
+    if sock <= 0 {
+        return None;
+    }
+
+    let mut ifr = if let Ok(ifr) = ifreq::from_name(ifname) {
+        ifr
+    }
+    else {
+        return None;
+    };
+
+    if ioctl(sock, SIOCGIFHWADDR, &mut ifr) == -1 {
+        return None;
+    }
+
+    let mac = Mac::from_slice(
+        &ifr.ifr_ifru.ifr_hwaddr.sa_data
+    );
+
+    Some(mac)
+}
+
 
 
 #[cfg(test)]
 mod tests {
     use std::mem::transmute;
 
-    use crate::network::r#if::get_if_nth;
+    use crate::network::if_::getifnth;
 
     use super::{getifaddrs, IfAddrItem, IfAddrs};
 
@@ -194,7 +242,7 @@ mod tests {
 
             println!("addr: {:?}", ifaddrs.get_sockaddr_in().unwrap());
 
-            let ifnth =  get_if_nth("wlp3s0");
+            let ifnth =  getifnth("wlp3s0");
 
             println!("{ifnth:?}");
         }

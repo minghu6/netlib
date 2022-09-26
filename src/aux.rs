@@ -186,20 +186,32 @@ macro_rules! cstr {
 }
 
 #[macro_export]
+macro_rules! __throw_errno_post {
+    ($err:ident $errno:ident withs) => {
+        return Err($crate::error::NetErr::$err(format!("{:?}", $errno)));
+    };
+    ($err:ident $errno:ident ) => {
+        return Err($crate::error::NetErr::$err);
+    };
+}
+
+#[macro_export]
 macro_rules! throw_errno {
-    ($call:ident ( $($arg:expr),* ) throws $err:ident) => {
+    ($call:ident ( $($arg:expr),* ) throws $err:ident $($rem:tt)*) => {
         {
             let ret = $call( $($arg),*);
 
             if ret == -1 {
-                eprintln!("{}: {:?}", stringify!($call), $crate::err::ErrNo::fetch());
-                return Err($crate::error::NetErr::$err);
+                let errno = $crate::err::ErrNo::fetch();
+                eprintln!("{}: {:?}", stringify!($call), errno);
+                $crate::__throw_errno_post!($err errno $($rem)*);
             }
 
             ret
         }
     };
 }
+
 
 #[macro_export]
 macro_rules! s {
@@ -213,6 +225,13 @@ macro_rules! s {
 macro_rules! or2s {
     ($expr:expr) => {
         $expr.or_else(|err| Err(format!("{err:?}")))
+    };
+}
+
+#[macro_export]
+macro_rules! or2anyway {
+    ($expr:expr) => {
+        $expr.or_else(|err| Err(NetErr::AnyWay(format!("{err:?}"))))
     };
 }
 

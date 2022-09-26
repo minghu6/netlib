@@ -1,4 +1,4 @@
-use std::{fmt::Debug, mem::transmute};
+use std::{fmt::{Debug, Display}, mem::transmute};
 
 use libc::{memcpy, c_void};
 
@@ -108,6 +108,20 @@ impl Mac {
         Self::new(0xff, 0xff, 0xff, 0xff, 0xff, 0xff)
     }
 
+    pub fn from_slice<T: Copy>(src: &[T]) -> Self {
+        let mut arr = [Hex8(0); 6];
+
+        unsafe {
+            memcpy(
+                arr.as_mut_ptr() as *mut _,
+                src.as_ptr() as *const _,
+                6
+            );
+        }
+
+        Self(arr)
+    }
+
     pub fn into_arr8(self) -> [u8; 8] {
         let mut arr8 = [0u8; 8];
 
@@ -124,11 +138,20 @@ impl Mac {
 }
 
 
+impl Display for Mac {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:?}:{:?}:{:?}:{:?}:{:?}:{:?}",
+            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5],
+        )
+    }
+}
 
 
 #[cfg(test)]
 mod tests {
-    use std::ptr::write;
+    use std::{ptr::write, mem::size_of};
 
     use crate::datalink::{Eth, Mac};
 
@@ -170,6 +193,6 @@ mod tests {
                 write(ethp.add(i), 0xFF);
             }
         }
-        println!("{eth:#?}");
+        println!("{eth:#?}, {} bytes", size_of::<Eth>());
     }
 }

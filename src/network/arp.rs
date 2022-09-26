@@ -13,6 +13,7 @@ use crate::{
 
 defraw! {
     /// Address Resolution Protocol (over IPv4)
+    #[repr(packed)]
     pub struct ARP {
         hrd: ARPHT,
         proto: EthTypeN,

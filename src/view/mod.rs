@@ -30,10 +30,10 @@ impl Debug for U16N {
 impl Debug for Hex8 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
-            write!(f, "0x{:02X}", self.0)
+            write!(f, "{:02X}", self.0)
         }
         else {
-            write!(f, "0x{:02x}", self.0)
+            write!(f, "{:02x}", self.0)
         }
     }
 }

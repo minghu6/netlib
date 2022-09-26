@@ -18,7 +18,7 @@ use crate::{
     error::*,
     network::{
         ip::{FragFlag, Protocol, ToS, DS, ECN, IP},
-        r#if::getifaddrs,
+        if_::getifaddrs,
     },
     throw_errno,
 };
@@ -165,7 +165,7 @@ mod tests {
     use crate::{
         aux::htonl,
         data::SAFamily,
-        network::{getsockname_sockaddr_in, ip::Protocol, r#if::getifaddrs},
+        network::{getsockname_sockaddr_in, ip::Protocol, if_::getifaddrs},
     };
 
 
