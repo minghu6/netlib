@@ -60,8 +60,7 @@ macro_rules! defe {
 macro_rules! defraw {
     ($(#[$outter:meta])* pub $t:ident $i:ident $($rem:tt)*) => (
         $crate::__defraw!(
-            #[derive(Default, Clone, Copy, Debug, Eq, PartialEq, Hash,
-                serde::Serialize, serde::Deserialize,)]
+            #[derive(Default, Clone, Copy, Debug, Eq, PartialEq, Hash)]
             #[allow(deprecated, non_camel_case_types)]
             $(#[$outter])* pub $t $i $($rem)*
         );
@@ -72,6 +71,7 @@ macro_rules! defraw {
 
 #[macro_export]
 macro_rules! __defraw {
+    // normal structure
     (
         $(#[$outter:meta])*
         pub struct $i:ident {
@@ -93,6 +93,8 @@ macro_rules! __defraw {
 
         $crate::defraw!($($rem)*);
     );
+
+    // one field tuple structure
     ($(#[$outter:meta])* pub struct $i:ident ( $ty:ty ); $($rem:tt)*) => (
         #[repr(C)]
         $(#[$outter])*
@@ -100,6 +102,8 @@ macro_rules! __defraw {
 
         $crate::defraw!($($rem)*);
     );
+
+    // enum
     (
         $(#[$outter:meta])*
         pub enum $i:ident {
@@ -121,6 +125,28 @@ macro_rules! __defraw {
         $crate::defraw!($($rem)*);
     );
 
+    // // union
+    // (
+    //     $(#[$outter:meta])*
+    //     pub union $i:ident {
+    //         $(
+    //             $( #[$inner:meta] )*
+    //             $field_name:ident : $ty:ty
+    //         ),* $(,)?
+    //     }
+    //     $($rem:tt)*
+    // ) => (
+    //     $(#[$outter])*
+    //     pub union $i {
+    //         $(
+    //             $(#[$inner])*
+    //             pub $field_name : $ty
+    //         ),*
+    //     }
+
+    //     $crate::defraw!($($rem)*);
+    // );
+
     ($($rem:tt)*) => ();
 }
 
@@ -138,12 +164,41 @@ macro_rules! deftransparent {
     () => ()
 }
 
+/// Mini version of defraw
+#[macro_export]
+macro_rules! defraw0 {
+    (
+        $(#[$outter:meta])*
+        $vis:vis $t:ident $i:ident {
+            $(
+                $( #[$inner:meta] )*
+                $field_name:ident : $ty:ty
+            ),* $(,)?
+        }
+        $($rem:tt)*
+    ) => (
+        #[repr(C)]
+        $(#[$outter])*
+        #[derive(Clone, Copy)]
+        $vis $t $i {
+            $(
+                $(#[$inner])*
+                $vis $field_name : $ty
+            ),*
+        }
+
+        $crate::defraw0!($($rem)*);
+    );
+    () => ()
+}
+
 
 #[macro_export]
 macro_rules! enum_try_from_int {
     ($(
+        $( #[doc=$outterdoc:literal] )*
         #[repr($T: ident)]
-        $( #[$outter: meta] )*
+        $( #[$outter2: meta] )*
         $vis: vis enum $Name: ident {
             $(
                 $( #[$inner: meta] )*
@@ -152,8 +207,9 @@ macro_rules! enum_try_from_int {
             $(,)?
         }
     )*) => {$(
+        $( #[doc=$outterdoc] )*
         #[repr($T)]
-        $( #[$outter] )*
+        $( #[$outter2] )*
         $vis enum $Name {
             $(
                 $( #[$inner] )*

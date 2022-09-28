@@ -27,3 +27,6 @@ run_shttpd:
 
 run_arp:
 	@ cargo run --example arp -- baidu.com
+
+run_sip:
+	@ cargo run --example sip

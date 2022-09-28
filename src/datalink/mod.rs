@@ -51,12 +51,15 @@ deftransparent! {
 
 
 enum_try_from_int! {
+    /// Assigned by https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.xhtml
+    /// and linux definition
     #[repr(u16)]
     #[derive(Clone, Copy, Default, Debug)]
     #[non_exhaustive]
     pub enum EthTypeE {
         #[default]
-        IEEE8023 = 0x0000,
+        Zero = 0x0000,
+        P8023 = 0x0001,
         IPv4 = 0x0800,
         ARP = 0x0806,
         /// Audio Video Transport Protocol

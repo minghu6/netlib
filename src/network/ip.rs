@@ -120,22 +120,22 @@ mod tests {
         println!("{:?}", p);
     }
 
-    #[test]
-    fn test_lib_bincode_behav() {
-        unsafe {
-            let ip = IP::default();
-            let config = bincode_options!().allow_trailing_bytes();
+    // #[test]
+    // fn test_lib_bincode_behav() {
+    //     unsafe {
+    //         let ip = IP::default();
+    //         let config = bincode_options!().allow_trailing_bytes();
 
-            let mut buf = [0u8; 40];
+    //         let mut buf = [0u8; 40];
 
-            ptr::write(buf.as_mut_ptr() as *mut _, ip);
+    //         ptr::write(buf.as_mut_ptr() as *mut _, ip);
 
-            let ip2: IP = config.deserialize(&buf[0..]).unwrap();
+    //         let ip2: IP = config.deserialize(&buf[0..]).unwrap();
 
-            println!("ip2: {:#?}", ip2)
-        }
+    //         println!("ip2: {:#?}", ip2)
+    //     }
 
-    }
+    // }
 
     #[test]
     fn test_h_to_n() {
