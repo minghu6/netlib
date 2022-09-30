@@ -17,7 +17,7 @@ use netlib::{
     error::NetErr,
     network::{
         icmp::{ICMPType, ICMP},
-        ip::{Protocol, IP, HLV, ToS, PL}, inet_cksum,
+        ip::{Protocol, IP, HLV, ToS, PL, FragOff, FragFlag}, inet_cksum,
     }, err::ErrNo, view::U16N,
 };
 
@@ -34,7 +34,7 @@ pub unsafe fn quick_ping_once(ip_src: u32, mut dst: sockaddr_in) -> Result<(), N
         tos: ToS::default(),
         len: PL::from_native(PACKAGE_SIZE as u16),
         id: U16N::from_native(getpid() as u16),
-        frag_off: Default::default(),
+        frag_off: FragOff::new(FragFlag::OF, 0),
         ttl: 200,
         protocol: Protocol::ICMP,
         checksum: 0,

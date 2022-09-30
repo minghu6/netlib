@@ -3,6 +3,7 @@
 
 use std::{fmt::Debug, mem::transmute, net::Ipv4Addr};
 
+use default_net::Gateway;
 use libc::sockaddr_in;
 
 use crate::{
@@ -10,10 +11,22 @@ use crate::{
     datalink::{EthTypeN, PacType},
     defraw, deftransparent,
     network::arp::ARPHT,
-    view::U16N,
+    view::U16N, error::{ NetErr, Result }, s,
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
+//// Trait
+
+
+pub trait Subnet {
+    fn subnet(&self, mask: &Self) -> Self;
+    fn broadcast(&self, mask: &Self) -> Self;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// Structure
 
 defraw! {
     #[repr(u16)]
@@ -66,12 +79,29 @@ deftransparent! {
 
 
 ////////////////////////////////////////////////////////////////////////////////
-//// Implementations
+//// Implementation
 
 
 impl Into<Ipv4Addr> for InAddrN {
     fn into(self) -> Ipv4Addr {
         Ipv4Addr::from(unsafe { ntohl(self.0) })
+    }
+}
+
+impl Debug for InAddrN {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let addr: Ipv4Addr = (*self).into();
+        write!(f, "{addr:?}")
+    }
+}
+
+impl Subnet for InAddrN {
+    fn subnet(&self, mask: &Self) -> Self {
+        Self(self.0 | !mask.0)
+    }
+
+    fn broadcast(&self, mask: &Self) -> Self {
+        Self(self.0 & mask.0)
     }
 }
 
@@ -98,13 +128,6 @@ impl InAddrN {
 }
 
 
-impl Debug for InAddrN {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let addr: Ipv4Addr = (*self).into();
-        write!(f, "{addr:?}")
-    }
-}
-
 impl From<Ipv4Addr> for SockAddrIn {
     fn from(ipv4: Ipv4Addr) -> Self {
         Self {
@@ -129,18 +152,34 @@ impl From<sockaddr_in> for SockAddrIn {
 }
 
 
-// impl std::fmt::Debug for SockAddrIn {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         unsafe {
-//             f.debug_struct("SockAddrIn")
-//                 .field("family", &self.family)
-//                 .field("port", &self.port)
-//                 .field("addr", &self.addr)
-//                 .finish()
-//         }
-//     }
-// }
+impl Subnet for Ipv4Addr {
+    fn subnet(&self, mask: &Self) -> Self {
+        let addru: u32 = self.clone().into();
+        let masku: u32 = mask.clone().into();
 
+        Ipv4Addr::from(addru & masku)
+    }
+
+    fn broadcast(&self, mask: &Self) -> Self {
+        let addru: u32 = self.clone().into();
+        let masku: u32 = mask.clone().into();
+
+        Ipv4Addr::from(addru | !masku)
+    }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// Function
+
+pub fn getgateway() -> Result<Gateway> {
+    match default_net::get_default_interface() {
+        Ok(default_interface) => {
+            default_interface.gateway.ok_or(NetErr::GetGateway(s!("")))
+        },
+        Err(msg) => Err(NetErr::GetGateway(msg))
+    }
+}
 
 
 

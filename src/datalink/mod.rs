@@ -1,12 +1,29 @@
-use std::{fmt::{Debug, Display}, mem::transmute};
+use std::{
+    fmt::{Debug, Display},
+    mem::{transmute, size_of},
+    str::FromStr,
+};
 
-use libc::{memcpy, c_void};
+use libc::{c_void, memcpy, memset};
 
-use crate::{defraw, view::Hex8, enum_try_from_int, aux::htons, deftransparent};
+use crate::{
+    aux::{htons, ntohs},
+    defraw, deftransparent, enum_try_from_int,
+    error::NetErr,
+    or2s,
+    view::Hex8,
+    RawResult, Result,
+};
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Structure
+
+
+deftransparent! {
+    pub struct Mac ([Hex8; 6]);
+}
+
 
 defraw! {
     #[repr(packed)]
@@ -15,8 +32,6 @@ defraw! {
         src: Mac,
         proto: EthTypeN
     }
-
-    pub struct Mac ([Hex8; 6]);
 
     // #define PACKET_HOST		0		/* To us		*/
     // #define PACKET_BROADCAST	1		/* To all		*/
@@ -60,6 +75,7 @@ enum_try_from_int! {
         #[default]
         Zero = 0x0000,
         P8023 = 0x0001,
+        PAll = 0x0003,
         IPv4 = 0x0800,
         ARP = 0x0806,
         /// Audio Video Transport Protocol
@@ -84,6 +100,11 @@ impl EthTypeN {
     pub fn val(self) -> u16 {
         self.0
     }
+
+    pub fn native(self) -> Result<EthTypeE> {
+        EthTypeE::try_from(unsafe { ntohs(self.0) })
+            .or_else(|code| Err(NetErr::AnyWay(format!("Unsupported 0x{code:0x}"))))
+    }
 }
 
 
@@ -95,7 +116,7 @@ impl EthTypeE {
 
 impl Debug for EthTypeN {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match EthTypeE::try_from(self.0) {
+        match EthTypeE::try_from(unsafe { ntohs(self.0) }) {
             Ok(enum_) => write!(f, "{enum_:?}"),
             Err(code) => write!(f, "Unsupported(0x{code:02X})"),
         }
@@ -115,11 +136,7 @@ impl Mac {
         let mut arr = [Hex8(0); 6];
 
         unsafe {
-            memcpy(
-                arr.as_mut_ptr() as *mut _,
-                src.as_ptr() as *const _,
-                6
-            );
+            memcpy(arr.as_mut_ptr() as *mut _, src.as_ptr() as *const _, 6);
         }
 
         Self(arr)
@@ -132,16 +149,27 @@ impl Mac {
             memcpy(
                 arr8.as_mut_ptr() as *mut c_void,
                 &self as *const Mac as *const c_void,
-                6
+                6,
             );
         }
 
         arr8
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.iter().all(|x| x.0 == 0 )
+    }
+
+    pub fn clear(&mut self) {
+        unsafe {
+            memset(self.0.as_mut_ptr() as *mut _, 0, size_of::<Self>());
+        }
+    }
+
 }
 
 
-impl Display for Mac {
+impl Debug for Mac {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -151,10 +179,31 @@ impl Display for Mac {
     }
 }
 
+impl Display for Mac {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl FromStr for Mac {
+    type Err = String;
+
+    fn from_str(s: &str) -> RawResult<Self, Self::Err> {
+        let mut mac = Mac::default();
+
+        for (i, subs) in s.split(":").enumerate() {
+            mac.0[i] = Hex8(or2s!(u8::from_str_radix(subs, 16))?);
+        }
+
+        Ok(mac)
+    }
+}
+
+
 
 #[cfg(test)]
 mod tests {
-    use std::{ptr::write, mem::size_of};
+    use std::{mem::size_of, ptr::write};
 
     use crate::datalink::{Eth, Mac};
 

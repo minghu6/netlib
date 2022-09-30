@@ -41,6 +41,7 @@ defe! {
         CreateThreadPool(std::io::Error),
         CreateDirAll(std::io::Error),
         GetIf(String),
+        GetGateway(String),
         AnyWay(String),
         Bug(String)
     }

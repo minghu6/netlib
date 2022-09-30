@@ -164,9 +164,74 @@ macro_rules! deftransparent {
     () => ()
 }
 
+#[macro_export]
+macro_rules! deftransparent1 {
+    ($(#[$outter:meta])* pub struct $i:ident ( $ty:ty ) ; $($rem:tt)*) => (
+        #[repr(C)]
+        #[derive(Clone, Copy)]
+        $(#[$outter])*
+        pub struct $i (pub $ty);
+        deftransparent1!($($rem)*);
+    );
+    () => ()
+}
+
 /// Mini version of defraw
+///
+/// Just Clone
 #[macro_export]
 macro_rules! defraw0 {
+    (
+        $(#[$outter:meta])*
+        $vis:vis $t:ident $i:ident {
+            $(
+                $( #[$inner:meta] )*
+                $field_name:ident : $ty:ty
+            ),* $(,)?
+        }
+        $($rem:tt)*
+    ) => (
+        #[repr(C)]
+        $(#[$outter])*
+        #[derive(Clone)]
+        $vis $t $i {
+            $(
+                $(#[$inner])*
+                $vis $field_name : $ty
+            ),*
+        }
+
+        defraw0!($($rem)*);
+    );
+
+    // enum
+    (
+        $(#[$outter:meta])*
+        pub enum $i:ident {
+            $(
+                $(#[$inner:meta])*
+                $key:ident $(= $value:expr)?
+            ),* $(,)?
+        }
+        $($rem:tt)*
+    ) => (
+        $(#[$outter])*
+        pub enum $i {
+            $(
+                $(#[$inner])*
+                $key $(= $value)?
+            ),*
+        }
+
+        defraw0!($($rem)*);
+    );
+
+    () => ()
+}
+
+/// Clone + Copy
+#[macro_export]
+macro_rules! defraw1 {
     (
         $(#[$outter:meta])*
         $vis:vis $t:ident $i:ident {
@@ -187,8 +252,31 @@ macro_rules! defraw0 {
             ),*
         }
 
-        $crate::defraw0!($($rem)*);
+        defraw1!($($rem)*);
     );
+
+    // enum
+    (
+        $(#[$outter:meta])*
+        pub enum $i:ident {
+            $(
+                $(#[$inner:meta])*
+                $key:ident $(= $value:expr)?
+            ),* $(,)?
+        }
+        $($rem:tt)*
+    ) => (
+        $(#[$outter])*
+        pub enum $i {
+            $(
+                $(#[$inner])*
+                $key $(= $value)?
+            ),*
+        }
+
+        defraw1!($($rem)*);
+    );
+
     () => ()
 }
 
@@ -220,7 +308,7 @@ macro_rules! enum_try_from_int {
         impl std::convert::TryFrom<$T> for $Name {
             type Error = $T;
 
-            fn try_from(value: $T) -> Result<$Name, Self::Error> {
+            fn try_from(value: $T) -> std::result::Result<$Name, Self::Error> {
                 match value {
                     $(
                         $value => Ok($Name::$Variant),
@@ -287,10 +375,26 @@ macro_rules! or2s {
 #[macro_export]
 macro_rules! or2anyway {
     ($expr:expr) => {
-        $expr.or_else(|err| Err(NetErr::AnyWay(format!("{err:?}"))))
+        $expr.or_else(|err| Err(netlib::error::NetErr::AnyWay(format!("{err:?}"))))
     };
 }
 
+
+/* Align size */
+#[macro_export]
+macro_rules! alignsz {
+    ($x:expr, $word:expr) => {
+        {
+            let x = $x;
+            let word = $word;
+
+            (x + word - 1) & !(word - 1)
+        }
+    };
+    ($x:expr) => {
+        alignsz!($x, 4)
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Traits
@@ -370,6 +474,8 @@ impl TryInto<Ipv4Addr> for HostOrIPv4 {
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Helper Function
+
+
 
 ///// Random //////////////////////////
 

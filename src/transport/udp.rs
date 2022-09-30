@@ -1,19 +1,19 @@
-
-use serde::{Deserialize, Serialize};
+use crate::{view::U16N, defraw};
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Data Structure
 
 
-#[repr(C)]
-#[derive(Debug, Deserialize, Serialize,)]
-pub struct UDP {
-    pub source: u16,
-    pub dest: u16,
-    pub len: u16,
-    pub checksum: u16
+defraw! {
+    pub struct UDP {
+        source: U16N,
+        dest: U16N,
+        len: U16N,
+        checksum: u16
+    }
 }
+
 
 
 

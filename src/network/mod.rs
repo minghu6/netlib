@@ -15,7 +15,6 @@ use crate::{
 pub mod arp;
 pub mod icmp;
 mod icmp_spec;
-pub mod if_;
 pub mod ip;
 mod ip_spec;
 

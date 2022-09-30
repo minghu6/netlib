@@ -12,13 +12,10 @@ use libc::{
 use m6coll::Array;
 use netlib::{
     aux::HostOrIPv4,
-    data::{InAddrN, SockAddrLL},
+    data::{InAddrN, SockAddrLL, getifaddrs, getifmac, getifnth},
     datalink::{Eth, EthTypeE, Mac, PacType},
     error::{NetErr, Result},
-    network::{
-        arp::{ARPOpE, ARP, ARPHTE},
-        if_::{getifaddrs, getifmac, getifnth},
-    },
+    network::arp::{ARPOpE, ARP, ARPHTE},
     or2anyway, throw_errno,
 };
 
@@ -104,7 +101,7 @@ unsafe fn recv_arp(sock: i32,) -> Result<()> {
     let arphdr = read(buf[size_of::<Eth>()..].as_mut_ptr() as *mut ARP);
 
     println!(
-        "recv from {} {} to {}",
+        "recv from {} {:?} to {}",
         arphdr.sip.ipv4(), arphdr.sha,
         arphdr.tip.ipv4()
     );

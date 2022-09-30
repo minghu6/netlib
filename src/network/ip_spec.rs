@@ -3,7 +3,7 @@ use std::{
     mem::transmute, fmt::Debug
 };
 
-use crate::{aux::{ntohs, htons}, defraw, view::U16N, deftransparent};
+use crate::{aux::{ntohs, htons}, defraw, view::U16N, deftransparent, defraw1};
 
 
 deftransparent! {
@@ -18,16 +18,24 @@ deftransparent! {
     pub struct PL(U16N);
 }
 
-/// LSB
-#[repr(u8)]
-#[derive(Debug)]
-pub enum FragFlag {
-    /// 0b010, Don't Fragmentation
-    DF = 0b010,
-    /// 0b001
-    MF = 0b001,
-    /// 0b000, Obey Fragmentation
-    OF = 0b000
+
+defraw1! {
+    /// MSB:
+    ///
+    /// 0 - Reserved
+    ///
+    /// 1 - DF flag
+    ///
+    /// 2 - Multiple flag
+    #[derive(Debug, PartialEq, Eq)]
+    pub enum FragFlag {
+        /// 0b010, Don't Fragmentation
+        DF = 0b010,
+        /// 0b001
+        MF = 0b001,
+        /// 0b000, Obey Fragmentation
+        OF = 0b000
+    }
 }
 
 
@@ -617,15 +625,15 @@ impl FragOff {
     }
 
     /// as bytes
-    pub fn get_frag_off_size(&self) -> u16 {
-        self.get_frag_off() * 8
+    pub fn get_frag_off_size(&self) -> usize {
+        self.get_frag_off() as usize * 8
     }
 }
 
 
 impl From<u8> for FragFlag {
     fn from(val: u8) -> Self {
-        unsafe { std::mem::transmute(val) }
+        unsafe { transmute(val) }
     }
 }
 

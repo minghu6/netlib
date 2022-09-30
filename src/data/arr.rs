@@ -1,7 +1,7 @@
 //! Array based types
 //!
 
-use std::{mem::zeroed, ffi::CStr, fmt::Debug};
+use std::{mem::zeroed, ffi::CStr, fmt::Debug, str::FromStr, convert::Infallible};
 use serde_big_array::BigArray;
 
 
@@ -10,7 +10,7 @@ use serde_big_array::BigArray;
 #[derive(Clone, Copy, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FixStr<const N: usize>{
     #[serde(with = "BigArray")]
-    raw: [u8; N]
+    pub raw: [u8; N]
 }
 
 
@@ -38,11 +38,34 @@ impl<const N: usize> FixStr<N> {
 
         s
     }
+
+    pub fn as_ptr(&self) -> *const u8 {
+        self.raw.as_ptr()
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.raw.as_mut_ptr()
+    }
+
 }
+
 
 impl<const N: usize> Debug for FixStr<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_string())
+    }
+}
+
+impl<const N: usize> FromStr for FixStr<N> {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut it = Self::default();
+        for (i, c) in (0..N).zip(s.as_bytes()) {
+            it.raw[i] = *c;
+        }
+
+        Ok(it)
     }
 }
 

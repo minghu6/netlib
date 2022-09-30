@@ -11,9 +11,10 @@ pub mod error;
 pub mod aux;
 pub mod data;
 pub mod err;
-pub mod imp;
 pub mod view;
 
+pub use error::Result;
+pub type RawResult<T, E> = std::result::Result<T, E>;
 
 
 #[cfg(test)]

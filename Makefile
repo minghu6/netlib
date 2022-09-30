@@ -29,4 +29,4 @@ run_arp:
 	@ cargo run --example arp -- baidu.com
 
 run_sip:
-	@ cargo run --example sip
+	@ cargo run --example sip -- wlp3s0

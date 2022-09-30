@@ -1,10 +1,12 @@
 use std::{fmt::Debug, mem::transmute};
 
 use crate::{
-    aux::htons,
+    aux::{htons, ntohs},
     data::InAddrN,
-    datalink::{Mac, EthTypeN},
-    defraw, enum_try_from_int, deftransparent,
+    datalink::{EthTypeN, Mac},
+    defraw, deftransparent, enum_try_from_int,
+    error::NetErr,
+    Result,
 };
 
 
@@ -45,7 +47,6 @@ deftransparent! {
 
 enum_try_from_int! {
     #[repr(u16)]
-    #[non_exhaustive]
     #[allow(non_camel_case_types)]
     #[derive(Debug)]
     pub enum ARPHTE {
@@ -117,6 +118,12 @@ impl ARPOp {
     pub fn from_native(v: u16) -> Self {
         unsafe { Self(htons(v)) }
     }
+
+    pub fn native(self) -> Result<ARPOpE> {
+        ARPOpE::try_from(unsafe { ntohs(self.0) }).or_else(|code| {
+            Err(NetErr::AnyWay(format!("unsupported code: {code}")))
+        })
+    }
 }
 
 impl ARPOpE {
@@ -147,6 +154,12 @@ impl ARPHT {
     pub fn from_native(v: u16) -> Self {
         Self(unsafe { htons(v) })
     }
+
+    pub fn native(self) -> Result<ARPHTE> {
+        ARPHTE::try_from(unsafe { ntohs(self.0) }).or_else(|code| {
+            Err(NetErr::AnyWay(format!("unsupported code: {code}")))
+        })
+    }
 }
 
 impl ARPHTE {
@@ -160,3 +173,20 @@ impl ARPHTE {
 //// Function
 
 
+#[cfg(test)]
+mod tests {
+    use std::mem::size_of;
+
+    use super::ARP;
+
+
+    #[test]
+    fn test_arp_layout() {
+        assert_eq!(
+            size_of::<ARP>(),
+            28,
+            "expect 28 found {}",
+            size_of::<ARP>()
+        );
+    }
+}

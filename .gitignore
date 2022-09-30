@@ -1,3 +1,4 @@
 /target
 .vscode
 res/shttpd/draft
+logs
