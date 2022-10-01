@@ -1,26 +1,25 @@
 use std::{
     fmt::Debug,
-    mem::{size_of, transmute, zeroed},
+    mem::{size_of, zeroed},
     net::IpAddr,
 };
 
 use libc::{
-    bind, memcpy, read, sendto, sleep, sockaddr, socket, socklen_t, strcpy,
-    AF_INET, ETH_FRAME_LEN, IFNAMSIZ, SOCK_PACKET,
+    bind, memcpy, read, sendto, sleep, socket, ETH_FRAME_LEN, IFNAMSIZ, AF_PACKET, SOCK_RAW,
 };
-use log::{ info, debug };
+use log::{debug, info};
 use netlib::{
-    data::{getgateway, getifaddrs, FixStr, InAddrN, SAFamily, Subnet},
-    datalink::{Eth, EthTypeE, EthTypeN, Mac},
+    data::{getgateway, getifaddrs, FixStr, InAddrN, Subnet, SockAddrLL, getifnth, getifmac},
+    datalink::{Eth, EthTypeE, EthTypeN, Mac, PacType},
     defraw1,
     error::{NetErr, Result},
-    network::{arp::ARP, ip::IP},
+    network::arp::{ARP, ARPHTE},
     or2anyway, throw_errno,
 };
 
 use crate::{
     arp::{arp_input, arp_req, ARPLIVE, ARPTAB},
-    ip::ip_input,
+    ip::{ip_input, IPHLEN},
     skbuff::SKBuff,
 };
 
@@ -42,20 +41,13 @@ defraw1! {
         ip_dst: InAddrN,
         type_: EthTypeN,
 
-        /// 从网络设备中获取数据，传入协议栈进行处理
-        input: *mut unsafe fn(&NetDevice) -> Result<()>,
-        /// IP模块发送数据时调用，经过ARP模块
-        output: *mut unsafe fn(&NetDevice, &SKBuff) -> Result<()>,
-        /// ARP模块调用
-        linkoutput: *mut unsafe fn(&NetDevice, &SKBuff,) -> Result<()>,
-
         hwa_len: u8,
         hwa: Mac,
         hwa_broadcast: Mac,
         mtu: u16,
         /// Sock descriptor
         sd: i32,
-        to: sockaddr
+        to: SockAddrLL
     }
 }
 
@@ -68,17 +60,30 @@ impl NetDevice {
         let mut dev: Self = zeroed();
 
         dev.sd = throw_errno!(socket(
-            AF_INET,
-            SOCK_PACKET,
+            AF_PACKET,
+            SOCK_RAW,
             EthTypeE::PAll.net().val() as i32
         ) throws CreateRawSocket);
 
         dev.name = ifname.parse().unwrap();
-        dev.to.sa_family = transmute(SAFamily::Inet);
-        strcpy(dev.to.sa_data.as_mut_ptr(), dev.name.as_ptr() as *const _);
+        let ifnth = getifnth(ifname).unwrap();
+        let src_mac = getifmac(ifname).unwrap();
+
+        let sockaddr = SockAddrLL {
+            family: AF_PACKET as u16,
+            proto: EthTypeE::ARP.net(),
+            ifindex: ifnth,
+            hatype: ARPHTE::Ethernet10Mb.net(),
+            pkttype: PacType::Host,
+            halen: size_of::<Mac>() as u8,
+            addr: src_mac.into_arr8(),
+        };
+        dev.to = sockaddr;
+        // dev.to.sa_family = transmute(SAFamily::Inet);
+        // strcpy(dev.to.sa_data.as_mut_ptr(), dev.name.as_ptr() as *const _);
 
         throw_errno!(
-            bind(dev.sd, &dev.to, size_of::<sockaddr>() as u32)
+            bind(dev.sd, &dev.to as *const _ as _, size_of::<SockAddrLL>() as u32)
             throws Bind
         );
 
@@ -111,14 +116,22 @@ impl NetDevice {
         };
         dev.ip_gateway = InAddrN::from_ipv4addr(ip_gateway);
 
-        dev.input = input as *mut _;
-        dev.output = output as *mut _;
-        dev.linkoutput = linkoutput as *mut _;
-
         dev.mtu = ETH_FRAME_LEN as u16;
         dev.type_ = EthTypeE::P8023.net();
 
         Ok(dev)
+    }
+
+    pub unsafe fn input(&self) -> Result<()> {
+        input(self)
+    }
+
+    pub unsafe fn output(&self, skbuff: &SKBuff) -> Result<()> {
+        output(self, skbuff)
+    }
+
+    pub unsafe fn linkoutput(&self, skbuff: &SKBuff) -> Result<()> {
+        linkoutput(self, skbuff)
     }
 }
 
@@ -147,13 +160,14 @@ impl Debug for NetDevice {
 }
 
 
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //// Function
 
 /// 从网卡输入数据
 
 pub unsafe fn input(dev: &NetDevice) -> Result<()> {
-    info!("dev input ...");
     let mut ef: [u8; ETH_FRAME_LEN as usize] = zeroed();
 
     let n = throw_errno!(
@@ -173,14 +187,16 @@ pub unsafe fn input(dev: &NetDevice) -> Result<()> {
     {
         match ethh.proto.native()? {
             EthTypeE::IPv4 => {
-                skb.nh.iph = skb.forward(size_of::<IP>()) as *mut _;
+                skb.nh.iph = skb.forward(IPHLEN) as *mut _;
 
                 ARPTAB.with_borrow_mut(|tab| {
                     tab.insert((*skb.nh.iph).ip_src, ethh.src, ARPLIVE as i64)
                 });
-                debug!("Incomming Network IPv4 handled {:?}", (*skb.nh.iph).ip_dst);
+                debug!(
+                    "Incomming Network IPv4 handled {:?}",
+                    (*skb.nh.iph).ip_dst
+                );
                 ip_input(dev, skb)?;
-
             }
             EthTypeE::ARP => {
                 skb.nh.arph = skb.forward(size_of::<ARP>()) as *mut _;
@@ -188,11 +204,13 @@ pub unsafe fn input(dev: &NetDevice) -> Result<()> {
                 let arptip = arph.tip;
 
                 if arptip == dev.ip_host {
-                    debug!("Incomming Network ARP handled {:?}", arptip);
+                    info!("Incomming Network ARP handled {:?}", arptip);
+                    info!("Incomming: {:#?}", arph);
+
                     arp_input(dev, skb)?;
                 }
                 else {
-                    debug!("Incomming Network filtered {:?}", arptip);
+                    debug!("Incomming Network ARP filtered {:?}", arptip);
                 }
             }
             _ => {}
@@ -207,14 +225,21 @@ pub unsafe fn input(dev: &NetDevice) -> Result<()> {
 
 
 /// 底层发送
-pub unsafe fn linkoutput(skbuff: &SKBuff, dev: &NetDevice) -> Result<()> {
+pub unsafe fn linkoutput(dev: &NetDevice, skbuff: &SKBuff) -> Result<()> {
     let mut p = skbuff as *const SKBuff;
 
     while !p.is_null() {
         let skp = &*p;
 
         let n = throw_errno!(
-            sendto(dev.sd, skp.head as *mut _, skp.curproto_len as usize, 0, &dev.to, size_of::<sockaddr> as socklen_t)
+            sendto(
+                dev.sd,
+                skp.head as *mut _,
+                skp.curproto_len as usize,
+                0,
+                0 as _,
+                0
+            )
             throws SendTo
         );
         info!("send {n} bytes");
@@ -227,7 +252,7 @@ pub unsafe fn linkoutput(skbuff: &SKBuff, dev: &NetDevice) -> Result<()> {
 
 
 /// 从网卡输出数据
-pub unsafe fn output(skbuff: &SKBuff, dev: &NetDevice) -> Result<()> {
+pub unsafe fn output(dev: &NetDevice, skbuff: &SKBuff) -> Result<()> {
     let mut dst_ip = (*skbuff.nh.iph).ip_dst;
 
     // is same subnet
@@ -264,11 +289,7 @@ pub unsafe fn output(skbuff: &SKBuff, dev: &NetDevice) -> Result<()> {
     ethh.src = dev.hwa;
     ethh.proto = EthTypeE::IPv4.net();
 
-    if dev.linkoutput.is_null() {
-        return Err(NetErr::AnyWay(format!("device linkoutput is null")));
-    }
-
-    (*dev.linkoutput)(dev, skbuff)?;
+    dev.linkoutput(skbuff)?;
 
     Ok(())
 }

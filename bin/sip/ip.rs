@@ -4,7 +4,6 @@ use std::{
 };
 
 use libc::memcpy;
-use log::error;
 use netlib::{
     aux::htons,
     data::InAddrN,
@@ -174,12 +173,7 @@ pub unsafe fn ip_output(
         skb = ip_frag(dev, skb);
     }
 
-    if dev.output.is_null() {
-        error!("dev.output is null");
-        return Err(NetErr::AnyWay(format!("dev.output is null")));
-    }
-
-    (*dev.output)(dev, &skb)
+    dev.output(&skb)
 }
 
 

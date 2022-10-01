@@ -3,7 +3,8 @@ use std::{
     mem::{size_of, zeroed},
 };
 
-use libc::{time, time_t, ETH_ALEN};
+use libc::{time, time_t, ETH_ALEN, ETH_ZLEN};
+use log::info;
 use netlib::{
     data::{InAddrN, Subnet},
     datalink::{Eth, EthTypeE, Mac},
@@ -123,7 +124,7 @@ pub unsafe fn arp_create(
     mut dst_mac: Mac,
     target_mac: Mac,
 ) -> SKBuff {
-    let mut skb: SKBuff = zeroed();
+    let mut skb = SKBuff::with_capcity(ETH_ZLEN as usize);
 
     skb.phy.raw = skb.forward(size_of::<Eth>());
     skb.nh.raw = skb.forward(size_of::<ARP>());
@@ -133,7 +134,7 @@ pub unsafe fn arp_create(
         src_mac = dev.hwa;
     }
     if dst_mac.is_empty() {
-        dst_mac = dev.hwa;
+        dst_mac = dev.hwa_broadcast;
     }
 
     let ethh = &mut (*skb.phy.ethh);
@@ -176,9 +177,9 @@ pub unsafe fn arp_send(
     let skb =
         arp_create(dev, op, src_ip, dst_ip, src_mac, dst_mac, target_mac);
 
-    if !dev.linkoutput.is_null() {
-        (*dev.linkoutput)(dev, &skb)?;
-    }
+    info!("Output: {:#?}", *skb.nh.arph);
+
+    dev.linkoutput(&skb)?;
 
     Ok(())
 }

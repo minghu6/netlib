@@ -126,26 +126,29 @@ impl ARPOp {
     }
 }
 
-impl ARPOpE {
-    pub fn net(self) -> ARPOp {
-        ARPOp(unsafe { transmute(self) })
+impl Debug for ARPOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match ARPOpE::try_from(unsafe { htons(self.0) }) {
+            Ok(enum_) => write!(f, "{enum_:?}"),
+            Err(err) => write!(f, "Invalid ({err})"),
+        }
     }
 }
+
+
+impl ARPOpE {
+    pub fn net(self) -> ARPOp {
+        ARPOp::from_native(unsafe { transmute(self) })
+    }
+}
+
+
 
 impl Debug for ARPHT {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match ARPHTE::try_from(unsafe { htons(self.0) }) {
             Ok(enum_) => write!(f, "{enum_:?}"),
             Err(err) => write!(f, "Unassigned({err})"),
-        }
-    }
-}
-
-impl Debug for ARPOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match ARPOpE::try_from(self.0) {
-            Ok(enum_) => write!(f, "{enum_:?}"),
-            Err(err) => write!(f, "Invalid ({err})"),
         }
     }
 }

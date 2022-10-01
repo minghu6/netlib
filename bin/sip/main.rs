@@ -69,14 +69,12 @@ fn main() {
     unsafe {
         let dev = NetDevice::init(cli.r#if.as_str()).unwrap();
         info!("dev init: {:#?}", dev);
-        loop {
-            if dev.input.is_null() {
-                eprintln!("dev.input is null");
-                return;
-            }
 
-            eth::input(&dev).unwrap();
-            // (*dev.input)(&dev).unwrap();
+        loop {
+            match dev.input() {
+                Ok(_) => (),
+                Err(err) => println!("{err:#?}"),
+            }
         }
     }
 
