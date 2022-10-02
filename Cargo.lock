@@ -676,6 +676,7 @@ dependencies = [
  "cookie",
  "crossbeam-channel",
  "default-net",
+ "derivative",
  "dns-lookup",
  "either",
  "encoding",

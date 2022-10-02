@@ -15,6 +15,7 @@ use netlib::{
 use crate::{
     eth::{NetDevice, ETH_HLEN},
     skbuff::SKBuff,
+    push_skbuff
 };
 
 
@@ -206,7 +207,9 @@ unsafe fn ip_frag(dev: &NetDevice, mut skb: SKBuff) -> SKBuff {
     let step = (mtu - ethip_hdr_len) >> 3 << 3;
 
     while consumed + step < plen {
-        let mut skb_t = SKBuff::with_capcity(ethip_hdr_len + step);
+        let skb_tp = push_skbuff!(SKBuff::with_capcity(ethip_hdr_len + step));
+        let mut skb_t = &mut *skb_tp;
+
         skb_t.phy.raw = skb_t.forward(ETH_HLEN);
         skb_t.nh.raw = skb_t.forward(IPHLEN);
 
@@ -220,7 +223,7 @@ unsafe fn ip_frag(dev: &NetDevice, mut skb: SKBuff) -> SKBuff {
             FragOff::new(FragFlag::MF, consumed.div_euclid(8) as u16);
         (*skb_t.nh.iph).checksum = cksum(skb_t.nh.raw, IPHLEN as u16);
 
-        (*skb_c).next = &mut skb_t as _;
+        (*skb_c).next = skb_tp;
         skb_c = (*skb_c).next;
 
         consumed += step;

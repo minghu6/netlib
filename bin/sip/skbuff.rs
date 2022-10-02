@@ -1,14 +1,50 @@
-use std::{ptr::drop_in_place, mem::zeroed, alloc::{alloc_zeroed, Layout}};
-
-use netlib::{
-    datalink::Eth,
-    network::{arp::ARP, icmp::ICMP, ip::{IP, Protocol, ToS}},
-    transport::{tcp::TCP, udp::UDP}, defraw1, data::InAddrN, view::U16N, alignsz, defraw0,
+use std::{
+    alloc::{alloc_zeroed, Layout},
+    cell::RefCell,
+    cmp::Ordering,
+    collections::BTreeSet,
+    mem::zeroed,
+    ptr::drop_in_place,
 };
 
 use libc::sem_t;
+use netlib::{
+    alignsz,
+    data::InAddrN,
+    datalink::Eth,
+    defraw0, defraw1,
+    network::{
+        arp::ARP,
+        icmp::ICMP,
+        ip::{Protocol, ToS, IP},
+    },
+    transport::{tcp::TCP, udp::UDP},
+    view::U16N,
+};
 
 use crate::eth::NetDevice;
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// Macro
+
+#[macro_export]
+macro_rules! push_skbuff {
+    ($expr:expr) => {
+        $crate::skbuff::SKBHOLDER.with_borrow_mut(|x|
+            x.push_get_raw($expr)
+        )
+    };
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//// ThreadLocal
+
+thread_local! {
+    pub static SKBHOLDER: RefCell<SKBuffHolder> = RefCell::new(SKBuffHolder::new());
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -97,6 +133,10 @@ defraw0! {
     }
 }
 
+pub struct SKBuffHolder {
+    data: BTreeSet<RefCell<SKBuff>>,
+}
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -134,6 +174,11 @@ impl SKBuff {
             tmp
         }
     }
+
+    // pub fn key(&self) -> usize {
+
+    // }
+
 }
 
 
@@ -141,5 +186,45 @@ impl Drop for SKBuff {
     fn drop(&mut self) {
         unsafe { drop_in_place(self.head) }
     }
+}
+
+
+impl PartialEq for SKBuff {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { self.phy.raw == other.phy.raw }
+    }
+}
+
+impl Eq for SKBuff {}
+
+
+impl PartialOrd for SKBuff {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        unsafe { self.phy.raw.partial_cmp(&other.phy.raw) }
+    }
+}
+
+impl Ord for SKBuff {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+
+impl SKBuffHolder {
+    pub fn new() -> Self {
+        Self {
+            data: BTreeSet::new(),
+        }
+    }
+
+    pub fn push_get_raw(&mut self, skbuff: SKBuff) -> *mut SKBuff {
+        let cell = RefCell::new(skbuff);
+        let p = cell.as_ptr();
+        self.data.insert(cell);
+
+        p
+    }
+
 }
 

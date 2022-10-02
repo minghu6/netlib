@@ -16,7 +16,7 @@ serde-big-array = "0.4.1"
 memmap2 = "0.5.4"
 either = "~1.7"
 bytes = "1"
-
+derivative = "2.2.0"
 
 # http
 http = "0.2"
@@ -69,7 +69,7 @@ name="tcp_server_r0"
 path="bin/tcp_server_r0.rs"
 
 [[example]]
-name = "ping"
+name = "m6ping"
 path = "bin/ping.rs"
 
 [[example]]

@@ -1,11 +1,11 @@
 
 test_ping:
-	@ cargo build --example ping
-	@ sudo ./target/debug/examples/ping baidu.com
-	# @ sudo ./target/debug/examples/ping opensource.com
-	# @ sudo ./target/debug/examples/ping localhost
-	@ cargo build --example ping -- baidu.com
+	# @ cargo build --example m6ping
+	# @ sudo ./target/debug/examples/m6ping baidu.com
+	@ cargo run --example m6ping -- tencent.com
 
+install_ping:
+	@ cargo install --path . --example m6ping
 
 test_dos_icmp:
 	@ cargo run --example dos_icmp -- 110.242.68.66

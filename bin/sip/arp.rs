@@ -8,7 +8,7 @@ use log::info;
 use netlib::{
     data::{InAddrN, Subnet},
     datalink::{Eth, EthTypeE, Mac},
-    defraw1, deftransparent1,
+    defraw1,
     error::NetErr,
     network::arp::{ARPOpE, ARP, ARPHTE},
     Result,
@@ -23,6 +23,13 @@ use crate::{eth::NetDevice, skbuff::SKBuff};
 
 pub const ARPTABSZ: usize = 10;
 pub const ARPLIVE: usize = 10 * 60;
+
+////////////////////////////////////////////////////////////////////////////////
+//// ThreadLocal
+
+thread_local! {
+    pub static ARPTAB: RefCell<ARPTab> = RefCell::new(unsafe { zeroed() });
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -43,13 +50,6 @@ defraw1! {
     pub struct ARPTab {
         tab: [ARPRecod; ARPTABSZ],
     }
-
-}
-
-deftransparent1! {}
-
-thread_local! {
-    pub static ARPTAB: RefCell<ARPTab> = RefCell::new(unsafe { zeroed() });
 
 }
 

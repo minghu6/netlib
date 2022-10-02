@@ -396,6 +396,14 @@ macro_rules! alignsz {
     }
 }
 
+/// Shorten version of size_of::<T>()
+#[macro_export]
+macro_rules! size {
+    ($name:ident) => {
+        std::mem::size_of::<$name>()
+    };
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //// Traits
 
