@@ -35,4 +35,7 @@ run_sip:
 	@ cargo run --example sip -- wlp3s0
 
 test:
+	@ sudo ip tuntap add dev tunx mode tun
+	@ sudo ip addr add 10.0.0.1/24 dev tunx
+	@ sudo ip link set tunx up
 	@ cargo test test_tun -- --nocapture
