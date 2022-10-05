@@ -20,7 +20,7 @@ use conf::*;
 use futures::executor::{self, ThreadPool};
 use log::info;
 use log4rs;
-use netlib::error::*;
+use netlib::rs_error::*;
 use route::RouteResolver;
 use worker::*;
 

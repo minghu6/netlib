@@ -5,7 +5,7 @@ use crate::{
     data::InAddrN,
     datalink::{EthTypeN, Mac},
     defraw, deftransparent, enum_try_from_int,
-    error::NetErr,
+    rs_error::NetErr,
     Result,
 };
 

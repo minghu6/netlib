@@ -15,7 +15,7 @@ use std::env;
 use clap::Parser;
 use log::info;
 use eth::NetDevice;
-use netlib::error::{LoggerKind, NetErr, Result};
+use netlib::rs_error::{LoggerKind, NetErr, Result};
 
 
 /// Simple UDP/IP Network Protocol Stack

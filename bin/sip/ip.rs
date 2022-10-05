@@ -7,7 +7,7 @@ use libc::memcpy;
 use netlib::{
     aux::htons,
     data::InAddrN,
-    error::NetErr,
+    rs_error::NetErr,
     network::ip::{FragFlag, FragOff, Protocol, IP},
     Result,
 };

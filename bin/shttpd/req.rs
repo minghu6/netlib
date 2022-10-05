@@ -8,7 +8,7 @@ use http::{
 use itertools::Itertools;
 use netlib::{
     application::http::{HeaderAccept, HeaderAcceptEncoding, HeaderCookie},
-    error::*,
+    rs_error::*,
     s,
 };
 

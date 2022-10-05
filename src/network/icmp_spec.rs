@@ -4,7 +4,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// View Structure
 
-use crate::error::NetErr;
+use crate::rs_error::NetErr;
 
 /// ICMP type and code
 #[derive(Debug, PartialEq, Eq)]

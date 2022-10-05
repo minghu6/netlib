@@ -14,7 +14,7 @@ use netlib::{
     aux::HostOrIPv4,
     data::{InAddrN, SockAddrLL, getifaddrs, getifmac, getifnth},
     datalink::{Eth, EthTypeE, Mac, PacType},
-    error::{NetErr, Result},
+    rs_error::{NetErr, Result},
     network::arp::{ARPOpE, ARP, ARPHTE},
     or2anyway, throw_errno,
 };

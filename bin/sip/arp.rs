@@ -9,7 +9,7 @@ use netlib::{
     data::{InAddrN, Subnet},
     datalink::{Eth, EthTypeE, Mac},
     defraw1,
-    error::NetErr,
+    rs_error::NetErr,
     network::arp::{ARPOpE, ARP, ARPHTE},
     Result,
 };

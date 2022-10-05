@@ -127,7 +127,8 @@ pub struct PingPacket {
 
 enum UnpackRes {
     Succcess,
-    Retry,
+    /// ping loopback
+    ReListen,
 }
 
 
@@ -192,12 +193,15 @@ unsafe fn icmp_unpack(
     })?;
 
     if icmp_type != ICMPType::EchoReply {
-        eprintln!("{icmp_type:?}");
-        return Ok(UnpackRes::Retry);
+        if !iphdr.ip_src.ipv4().is_loopback() {
+            eprintln!("{icmp_type:?}");
+        }
+
+        return Ok(UnpackRes::ReListen);
     }
     if id != (pid & 0xffff) as u16 {
         eprintln!("Expected id {}, found {}", id, (pid & 0xffff) as u16);
-        return Ok(UnpackRes::Retry);
+        return Ok(UnpackRes::ReListen);
     }
 
     match packets.lock() {
@@ -283,8 +287,12 @@ unsafe fn ping_recv_loop(
     let mut readfd: fd_set = zeroed(); // bits map
     let mut send_buf = [0u8; 68]; // 56 + 8 + 4
 
+    let mut new_ping = true;
+
     loop {
-        ping_once(rawsock, &mut send_buf, packets.clone(), dst)?;
+        if new_ping {
+            ping_once(rawsock, &mut send_buf, packets.clone(), dst)?;
+        }
 
         // select return will clear all bit but the ready bit
         FD_ZERO(&mut readfd);
@@ -336,11 +344,15 @@ unsafe fn ping_recv_loop(
 
         debug_assert!(size > 0);
         match icmp_unpack(&mut recv_buf[..size as usize], packets.clone())? {
-            UnpackRes::Succcess => {}
-            UnpackRes::Retry => {
-                // eprintln!("retry...");
+            UnpackRes::Succcess => {
+                new_ping = true;
             }
-        }
+            UnpackRes::ReListen => {
+                // eprintln!("retry...");
+                new_ping = false;
+                continue;
+            }
+        };
 
         sleep(Duration::new(0, 500_000_000));
     }

@@ -1,3 +1,5 @@
+INSTALLED_DIR=$(HOME)/.cargo/bin
+
 
 test_ping:
 	# @ cargo build --example m6ping
@@ -6,6 +8,7 @@ test_ping:
 
 install_ping:
 	@ cargo install --path . --example m6ping
+	@ sudo setcap CAP_NET_RAW=epi $(INSTALLED_DIR)/m6ping
 
 test_dos_icmp:
 	@ cargo run --example dos_icmp -- 110.242.68.66
@@ -30,3 +33,6 @@ run_arp:
 
 run_sip:
 	@ cargo run --example sip -- wlp3s0
+
+test:
+	@ cargo test test_tun -- --nocapture

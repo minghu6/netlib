@@ -12,7 +12,7 @@ use netlib::{
     data::{getgateway, getifaddrs, FixStr, InAddrN, Subnet, SockAddrLL, getifnth, getifmac},
     datalink::{Eth, EthTypeE, EthTypeN, Mac, PacType},
     defraw1,
-    error::{NetErr, Result},
+    rs_error::{NetErr, Result},
     network::arp::{ARP, ARPHTE},
     or2anyway, throw_errno,
 };

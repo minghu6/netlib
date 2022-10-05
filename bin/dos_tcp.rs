@@ -17,8 +17,8 @@ use libc::{
 use netlib::{
     aux::{htons, ntohl, random_u16, HostOrIPv4, random_u32},
     data::{SockAddrIn, InAddrN},
-    err::ErrNo,
-    error::NetErr,
+    c_error::ErrNo,
+    rs_error::NetErr,
     network::{
         inet_cksum,
         ip::{Protocol, IP, HLV, ToS, PL},

@@ -1,12 +1,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// Macros
 
-use std::{cell::RefCell, error::Error, net::Ipv4Addr, str::FromStr};
+use std::{cell::RefCell, error::Error, net::Ipv4Addr, str::FromStr, cmp::min};
 
 use either::Either;
-use libc::{c_char, in_addr, in_addr_t};
+use libc::{c_char, in_addr, in_addr_t, memcpy};
 
-/// use bincode::{ Options, options };
 #[macro_export]
 macro_rules! bincode_options {
     () => {
@@ -325,17 +324,17 @@ macro_rules! enum_try_from_int {
 #[macro_export]
 macro_rules! cstr {
     ($val:literal) => {
-        CString::new($val).unwrap().as_ptr()
+        std::ffi::CString::new($val).unwrap().as_ptr()
     };
 }
 
 #[macro_export]
 macro_rules! __throw_errno_post {
     ($err:ident $errno:ident withs) => {
-        return Err($crate::error::NetErr::$err(format!("{:?}", $errno)));
+        return Err($crate::NetErr::$err(format!("{:?}", $errno)));
     };
     ($err:ident $errno:ident ) => {
-        return Err($crate::error::NetErr::$err);
+        return Err($crate::rs_error::NetErr::$err);
     };
 }
 
@@ -346,7 +345,7 @@ macro_rules! throw_errno {
             let ret = $call( $($arg),*);
 
             if ret == -1 {
-                let errno = $crate::err::ErrNo::fetch();
+                let errno = $crate::c_error::ErrNo::fetch();
                 eprintln!("{}: {:?}", stringify!($call), errno);
                 $crate::__throw_errno_post!($err errno $($rem)*);
             }
@@ -375,7 +374,14 @@ macro_rules! or2s {
 #[macro_export]
 macro_rules! or2anyway {
     ($expr:expr) => {
-        $expr.or_else(|err| Err(netlib::error::NetErr::AnyWay(format!("{err:?}"))))
+        $expr.or_else(|err| Err($crate::NetErr::AnyWay(format!("{err:?}"))))
+    };
+}
+
+#[macro_export]
+macro_rules! retanyway {
+    ($($t:tt)*) => {
+        return Err($crate::NetErr::AnyWay(format!($($t)*)));
     };
 }
 
@@ -483,6 +489,13 @@ impl TryInto<Ipv4Addr> for HostOrIPv4 {
 ////////////////////////////////////////////////////////////////////////////////
 //// Helper Function
 
+/// Rust version strncpy, copy n-1 bytes and end with '\0'
+pub unsafe fn rstrncpy(dst: *mut u8, src: &str, n: usize) {
+    let copiedn = min(src.len(), n - 1);
+
+    memcpy(dst as _, src.as_ptr() as _, copiedn);
+    (*dst.add(copiedn + 1)) = 0;
+}
 
 
 ///// Random //////////////////////////

@@ -7,7 +7,7 @@ use libc::{
 
 use crate::{
     data::SockAddrIn,
-    error::*,
+    rs_error::*,
     throw_errno,
 };
 

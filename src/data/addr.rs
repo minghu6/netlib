@@ -11,7 +11,7 @@ use crate::{
     datalink::{EthTypeN, PacType},
     defraw, deftransparent,
     network::arp::ARPHT,
-    view::U16N, error::{ NetErr, Result }, s,
+    view::U16N, rs_error::{ NetErr, Result }, s,
 };
 
 

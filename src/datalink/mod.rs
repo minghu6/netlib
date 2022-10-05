@@ -9,7 +9,7 @@ use libc::{c_void, memcpy, memset};
 use crate::{
     aux::{htons, ntohs},
     defraw, deftransparent, enum_try_from_int,
-    error::NetErr,
+    rs_error::NetErr,
     or2s,
     view::Hex8,
     RawResult, Result,

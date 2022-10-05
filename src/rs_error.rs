@@ -29,6 +29,9 @@ defe! {
         GetIfAddrs,
         SocketRaw,
         Bind,
+        COpen,
+        CIOCtl,
+
         StreamShutDown(std::io::Error),
         SetStreamOpt(std::io::Error),
         Read(std::io::Error),

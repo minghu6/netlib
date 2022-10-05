@@ -8,7 +8,7 @@ use mime::{ Mime, self};
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::error::HttpKind;
+use crate::rs_error::HttpKind;
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Structure

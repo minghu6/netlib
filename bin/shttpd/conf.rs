@@ -6,7 +6,7 @@ use std::{
 };
 
 use getset::{Getters, Setters};
-use netlib::error::*;
+use netlib::rs_error::*;
 use serde_yaml::{self, Mapping, Value};
 
 

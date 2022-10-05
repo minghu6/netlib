@@ -13,7 +13,7 @@ use libc::{
 use crate::{
     aux::ntohl,
     data::{rtnl_link_stats, SAFamily, SockAddrIn},
-    error::Result,
+    rs_error::Result,
     throw_errno, datalink::{EthTypeE, Mac},
 };
 

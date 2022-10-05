@@ -14,11 +14,11 @@ use libc::{getpid, sockaddr_in, socket, AF_INET, SOCK_RAW, sendto, c_void, socka
 use netlib::{
     aux::{htons, random, HostOrIPv4, ntohl},
     data::{SockAddrIn, InAddrN},
-    error::NetErr,
+    rs_error::NetErr,
     network::{
         icmp::{ICMPType, ICMP},
         ip::{Protocol, IP, HLV, ToS, PL, FragOff, FragFlag}, inet_cksum,
-    }, err::ErrNo, view::U16N,
+    }, c_error::ErrNo, view::U16N,
 };
 
 const PACKAGE_SIZE: usize = size_of::<IP>() + size_of::<ICMP>() + 64;

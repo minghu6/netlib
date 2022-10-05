@@ -18,7 +18,7 @@ use http::{
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use log::info;
-use netlib::{error::*, s, application::http::AcceptEncoding};
+use netlib::{rs_error::*, s, application::http::AcceptEncoding};
 
 use crate::req::*;
 use crate::{

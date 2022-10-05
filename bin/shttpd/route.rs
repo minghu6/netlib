@@ -13,7 +13,7 @@ use mime::{TEXT_HTML, TEXT_HTML_UTF_8, TEXT_PLAIN, TEXT_PLAIN_UTF_8};
 use qstring::QString;
 use netlib::{
     application::http::parse_content_type,
-    error::{NetErr, Result},
+    rs_error::{NetErr, Result},
     or2s, s,
 };
 
