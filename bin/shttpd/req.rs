@@ -162,7 +162,6 @@ impl Req {
         let accept = if let Some(val) = hdrs.get(ACCEPT) {
             match val.to_str().unwrap().parse() {
                 Ok(res) => res,
-                Err(_) => Default::default(),
             }
         }
         else {
@@ -172,7 +171,6 @@ impl Req {
         let accept_encoding = if let Some(val) = hdrs.get(ACCEPT_ENCODING) {
             match val.to_str().unwrap().parse() {
                 Ok(res) => res,
-                Err(_) => Default::default(),
             }
         }
         else {

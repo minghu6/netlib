@@ -1,5 +1,5 @@
 INSTALLED_DIR=$(HOME)/.cargo/bin
-
+IF=wlp2s0
 
 test_ping:
 	# @ cargo build --example m6ping
@@ -8,6 +8,11 @@ test_ping:
 
 install_ping:
 	@ cargo install --path . --example m6ping
+	# https://man7.org/linux/man-pages/man7/capabilities.7.html
+	# e effective, i inheritable, p permitted
+	# remove `nosuid` partition mount option (/home on Ubuntu) to enable capability setting (after remount it)
+	# or move exeecuable file to other partiation
+	# or run with sudo
 	@ sudo setcap CAP_NET_RAW=epi $(INSTALLED_DIR)/m6ping
 
 test_dos_icmp:
@@ -32,10 +37,14 @@ run_arp:
 	@ cargo run --example arp -- baidu.com
 
 run_sip:
-	@ cargo run --example sip -- wlp3s0
+	@ cargo build --example sip
+	@ sudo setcap CAP_NET_RAW=epi ./target/debug/examples/sip
+	@ ./target/debug/examples/sip -- $(IF)
 
-test:
+setup_dev:
 	@ sudo ip tuntap add dev tunx mode tun
 	@ sudo ip addr add 10.0.0.1/24 dev tunx
 	@ sudo ip link set tunx up
+
+test_dev:
 	@ cargo test test_tun -- --nocapture

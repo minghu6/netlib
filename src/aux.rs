@@ -320,14 +320,6 @@ macro_rules! enum_try_from_int {
 }
 
 
-
-#[macro_export]
-macro_rules! cstr {
-    ($val:literal) => {
-        std::ffi::CString::new($val).unwrap().as_ptr()
-    };
-}
-
 #[macro_export]
 macro_rules! __throw_errno_post {
     ($err:ident $errno:ident withs) => {
@@ -355,6 +347,12 @@ macro_rules! throw_errno {
     };
 }
 
+#[macro_export]
+macro_rules! cstr {
+    ($s:expr) => {
+        std::ffi::CString::new($s).unwrap().into_raw()
+    };
+}
 
 #[macro_export]
 macro_rules! s {
@@ -454,7 +452,7 @@ impl FromStr for HostOrIPv4 {
             })
         }
         else {
-            Err(box CliError::ParseInAddrFailed("".to_string()))
+            Err(Box::new(CliError::ParseInAddrFailed("".to_string())))
         }
     }
 }
@@ -469,7 +467,7 @@ impl TryInto<Ipv4Addr> for HostOrIPv4 {
                 let addrs =
                     dns_lookup::getaddrinfo(Some(&hostname), None, None)
                         .or_else(|_lkerr| {
-                            Err(box CliError::UnresolvedHost(hostname))
+                            Err(Box::new(CliError::UnresolvedHost(hostname)))
                         })?
                         .collect::<std::io::Result<Vec<_>>>()
                         .unwrap();
@@ -531,13 +529,11 @@ pub fn random_u32() -> u32 {
 
 ///// Counter //////////////////////////
 
-pub type CounterType = impl FnMut() -> usize;
-
-pub fn gen_counter() -> CounterType {
+pub fn gen_counter() -> impl FnMut() -> usize {
     _gen_counter(0)
 }
 
-fn _gen_counter(init: usize) -> CounterType {
+fn _gen_counter(init: usize) -> impl FnMut() -> usize {
     let mut count = init;
 
     move || {
@@ -546,12 +542,3 @@ fn _gen_counter(init: usize) -> CounterType {
         old_count
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-
-//     #[test]
-//     fn test_counter() {
-
-//     }
-// }

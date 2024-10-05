@@ -1,6 +1,3 @@
-#![feature(box_syntax)]
-
-
 use std::{
     error::Error,
     mem::size_of,
@@ -170,7 +167,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // IPPROTO_RAW - 255
         RAWSOCK = socket(AF_INET, SOCK_RAW, Protocol::Reserved as i32);
         if RAWSOCK < 0 {
-            return Err(box NetErr::CreateRawSocket);
+            return Err(Box::new(NetErr::CreateRawSocket));
         }
 
         // TCP SYN DoS Attack

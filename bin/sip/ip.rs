@@ -208,7 +208,7 @@ unsafe fn ip_frag(dev: &NetDevice, mut skb: SKBuff) -> SKBuff {
 
     while consumed + step < plen {
         let skb_tp = push_skbuff!(SKBuff::with_capcity(ethip_hdr_len + step));
-        let mut skb_t = &mut *skb_tp;
+        let skb_t = &mut *skb_tp;
 
         skb_t.phy.raw = skb_t.forward(ETH_HLEN);
         skb_t.nh.raw = skb_t.forward(IPHLEN);

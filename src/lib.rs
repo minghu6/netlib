@@ -1,6 +1,3 @@
-#![feature(arbitrary_enum_discriminant)]
-#![feature(exclusive_range_pattern)]
-#![feature(box_syntax)]
 #![feature(type_alias_impl_trait)]
 
 pub mod datalink;

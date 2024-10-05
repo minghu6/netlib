@@ -1,4 +1,3 @@
-#![feature(box_syntax)]
 #![feature(never_type)]
 
 use std::{mem::{size_of, zeroed}, net::Ipv4Addr, ptr::{write, read, null_mut}, str::FromStr};

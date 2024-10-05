@@ -1,6 +1,3 @@
-#![feature(box_syntax)]
-#![feature(local_key_cell_methods)]
-
 use std::{
     error::Error,
     mem::{size_of, zeroed},
@@ -82,7 +79,7 @@ macro_rules! get_packet_mut {
     };
 }
 
-#[macro_export(inner_macros)]
+#[macro_export]
 macro_rules! push_packet {
     ($packets:expr) => {{
         let mut packets = $packets;
@@ -91,7 +88,7 @@ macro_rules! push_packet {
     }};
 }
 
-#[macro_export(inner_macros)]
+#[macro_export]
 macro_rules! init_select_timeout {
     () => {
         {
@@ -425,7 +422,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let rawsock = socket(AF_INET, SOCK_RAW, Protocol::ICMP as i32);
 
         if rawsock < 0 {
-            return Err(box PingError::CreateRawSocketFailed(rawsock));
+            return Err(Box::new(PingError::CreateRawSocketFailed(rawsock)));
         }
 
         let size = 128 * 1024;

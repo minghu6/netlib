@@ -4,11 +4,8 @@ use ifstructs::ifreq;
 use libc::{c_void, ioctl, open, IFF_NO_PI, IFF_TUN, O_RDWR};
 
 use crate::{
-    cstr,
-    dev::{copy_if_name, TUNSETIFF, TUNSETPERSIST},
-    throw_errno, Result,
+    cstr, dev::{copy_if_name, TUNSETIFF, TUNSETPERSIST}, throw_errno, Result
 };
-
 
 
 pub unsafe fn open_tun(dev: &str) -> Result<i32> {

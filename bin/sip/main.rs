@@ -1,7 +1,4 @@
-#![feature(box_syntax)]
 #![feature(never_type)]
-#![feature(local_key_cell_methods)]
-
 
 mod skbuff;
 mod eth;
