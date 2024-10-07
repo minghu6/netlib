@@ -8,7 +8,6 @@ use std::{
     time::Duration, sync::Arc,
 };
 
-use bytes::{BufMut, Bytes, BytesMut};
 use http::{
     header::{HeaderName, ACCEPT, ACCEPT_RANGES, COOKIE},
     request,
@@ -88,30 +87,4 @@ fn _do_work(ctx: Arc<GloablContext>, mut stream: TcpStream) -> Result<()> {
         .or_else(|err| Err(NetErr::StreamShutDown(err)))?;
 
     Ok(())
-}
-
-
-
-
-#[cfg(test)]
-mod tests {
-    use std::fmt::Write;
-
-    use bytes::{BufMut, BytesMut};
-
-
-    #[test]
-    fn test_bytes() {
-        // let mut buf = BytesMut::with_capacity(1024);
-        // buf.put(&b"hello world"[..]);
-        // // buf.put(&b"123456"[..]);
-        // buf.write_str("123456");
-
-        // let mut arr = [0u8; 3];
-        // let mut buf = BytesMut::from(&arr[..]);
-        // let mut buf = BytesMut::new();
-
-        // write!(&mut buf, "hel");
-        // println!("{:#?}", String::from_utf8_lossy(buf.as_ref()));
-    }
 }

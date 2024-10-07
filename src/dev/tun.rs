@@ -4,13 +4,13 @@ use ifstructs::ifreq;
 use libc::{c_void, ioctl, open, IFF_NO_PI, IFF_TUN, O_RDWR};
 
 use crate::{
-    cstr, dev::{copy_if_name, TUNSETIFF, TUNSETPERSIST}, throw_errno, Result
+    dev::{copy_if_name, TUNSETIFF, TUNSETPERSIST}, throw_errno, Result
 };
 
 
 pub unsafe fn open_tun(dev: &str) -> Result<i32> {
     let fd = throw_errno!(
-        open(cstr!("/dev/net/tun"), O_RDWR)
+        open(c"/dev/net/tun".as_ptr(), O_RDWR)
         throws COpen
     );
 

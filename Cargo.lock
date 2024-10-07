@@ -764,15 +764,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
-name = "memmap2"
-version = "0.5.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83faa42c0a078c393f6b29d5db232d8be22776a891f8f56e5284faee4a20b327"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -792,14 +783,12 @@ name = "netlib"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "bytes",
  "chrono",
  "clap",
  "clap_complete",
  "cookie",
  "crossbeam-channel",
  "default-net",
- "derivative",
  "dns-lookup",
  "either",
  "encoding",
@@ -816,7 +805,6 @@ dependencies = [
  "log4rs",
  "m6coll",
  "maplit",
- "memmap2",
  "mime",
  "qstring",
  "rand",

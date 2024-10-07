@@ -99,6 +99,7 @@ macro_rules! init_select_timeout {
             (*p).tv_sec = 10;
             (*p).tv_usec = 0;
 
+            #[allow(static_mut_refs)]
             SELECT_TIMEOUT_P.replace(p as usize);
             p
         }
