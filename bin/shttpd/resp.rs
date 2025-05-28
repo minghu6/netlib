@@ -20,7 +20,7 @@ pub struct Resp {
     version: Version,
     status: StatusCode,
     date: String,
-    // content_length: u64,, replacing with body.len()
+    // content_length: u64, replacing with body.len()
     server: String,
     is_close: bool,
     body: Body,

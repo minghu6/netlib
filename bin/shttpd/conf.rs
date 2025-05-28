@@ -32,7 +32,7 @@ pub const CONF_NAME_TIMEOUT: &str = "timeout";
 
 
 ////////////////////////////////////////////////////////////////////////////////
-//// Structure
+//// Structures
 
 #[derive(Getters, Setters, Debug, Clone)]
 #[getset(get = "pub", set = "pub")]

@@ -19,13 +19,13 @@ use crate::{
 ////////////////////////////////////////////////////////////////////////////////
 //// Structure
 
-
 deftransparent! {
     pub struct Mac ([Hex8; 6]);
 }
 
 
 defraw! {
+    /// [Ethernet_II](https://en.wikipedia.org/wiki/Ethernet_frame#Ethernet_II)
     #[repr(packed)]
     pub struct Eth {
         dst: Mac,
@@ -37,10 +37,10 @@ defraw! {
     // #define PACKET_BROADCAST	1		/* To all		*/
     // #define PACKET_MULTICAST	2		/* To group		*/
     // #define PACKET_OTHERHOST	3		/* To someone else 	*/
-    // #define PACKET_OUTGOING		4		/* Outgoing of any type */
-    // #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
+    // #define PACKET_OUTGOING		4	/* Outgoing of any type */
+    // #define PACKET_LOOPBACK		5	/* MC/BRD frame looped back */
     // #define PACKET_USER		6		/* To user space	*/
-    // #define PACKET_KERNEL		7		/* To kernel space	*/
+    // #define PACKET_KERNEL		7	/* To kernel space	*/
     // /* Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space */
     // #define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
     #[repr(u8)]
@@ -85,7 +85,6 @@ enum_try_from_int! {
         EthFlowCtrl = 0x8808,
     }
 }
-
 
 
 ////////////////////////////////////////////////////////////////////////////////

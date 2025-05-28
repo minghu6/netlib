@@ -3,7 +3,6 @@
 use std::{str::FromStr, convert::Infallible, fmt::Display};
 
 use cookie::Cookie;
-use http::header::CONTENT_TYPE;
 use mime::{ Mime, self};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -54,9 +53,6 @@ pub enum AcceptEncoding {
 pub struct HeaderCookie {
     items: Vec<Cookie<'static>>
 }
-
-
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -162,7 +158,6 @@ impl FromStr for HeaderCookie {
     type Err = HttpKind;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-
         let mut items = vec![];
         for item_s in s.trim_start().split(";") {
             if let Ok(cookie) = Cookie::from_str(item_s.trim_start()) {
@@ -242,7 +237,7 @@ impl Display for AcceptEncoding {
 
 pub fn parse_content_type(s: &str) -> Result<Mime, ()> {
     let s = s.trim().to_lowercase();
-    let prefix = format!("{CONTENT_TYPE}: ");
+    let prefix = format!("content_type: ");
 
     if !s.starts_with(&prefix) {
         return Err(());

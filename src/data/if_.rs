@@ -23,7 +23,7 @@ use crate::{
 
 /* SIOC G(et) IF INDEX */
 pub const SIOCGIFINDEX: u64 = 0x8933;
-pub const SIOCGIFHWADDR: u64 = 0x8933;
+pub const SIOCGIFHWADDR: u64 = 0x8927;
 
 
 
@@ -248,15 +248,6 @@ mod tests {
 
     #[test]
     fn test_getgateway() {
-
-        // let searchopt = SearchOptions {
-        //     ..Default::default()
-        // };
-
-        // let gateway = search_gateway(searchopt).unwrap();
-
-        // println!("gateway: {:?}", gateway.get_external_ip());
-
         match default_net::get_default_interface() {
             Ok(default_interface) => {
                 println!("Default Interface");

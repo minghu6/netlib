@@ -126,7 +126,6 @@ pub unsafe fn quick_send_syn(
     Ok(())
 }
 
-#[allow(unused)]
 unsafe fn dos_syn(dst: sockaddr_in, port_dst: u16) {
     loop {
         let ip_src = random_u32();

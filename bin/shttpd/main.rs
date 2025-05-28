@@ -32,7 +32,6 @@ async fn do_listen(ctx: Arc<GloablContext>) -> Result<()> {
     let listener =
         TcpListener::bind(servaddr).or_else(|_err| Err(NetErr::Bind))?;
 
-
     let pool =
         ThreadPool::new().or_else(|err| Err(NetErr::CreateThreadPool(err)))?;
 
@@ -47,8 +46,6 @@ async fn do_listen(ctx: Arc<GloablContext>) -> Result<()> {
 
     Ok(())
 }
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Cli

@@ -31,7 +31,7 @@ pub unsafe fn inet_cksum(mut data: *const u8, mut len: usize) -> u16 {
 
     // sum every two bytes
     while len & 0xfffe > 0 {
-        sum += *(data as *const u16) as u32;
+        sum += core::ptr::read_unaligned::<u16>(data as _) as u32;
         data = data.add(2);
         len -= 2;
     }

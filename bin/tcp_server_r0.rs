@@ -14,7 +14,6 @@ use clap::Parser;
 ///
 fn handle_req_2(stream: &mut TcpStream) -> std::io::Result<()> {
     stream.write_all("2+2".as_bytes())
-
 }
 
 

@@ -13,8 +13,6 @@ pub struct FixStr<const N: usize>{
     pub raw: [u8; N]
 }
 
-
-
 impl<const N: usize> Default for FixStr<N> {
     fn default() -> Self {
         Self { raw: unsafe { zeroed() } }

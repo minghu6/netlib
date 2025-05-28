@@ -2,9 +2,8 @@ INSTALLED_DIR=$(HOME)/.cargo/bin
 IF=wlp2s0
 
 test_ping:
-	# @ cargo build --example m6ping
-	# @ sudo ./target/debug/examples/m6ping baidu.com
-	@ cargo run --example m6ping -- tencent.com
+	@ sudo setcap cap_net_raw+eip ./target/debug/examples/m6ping
+	@ cargo run --example m6ping -- baidu.com
 
 install_ping:
 	@ cargo install --path . --example m6ping

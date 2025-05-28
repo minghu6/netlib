@@ -19,7 +19,7 @@ It should be obviously heuristic for production.
     - network: Network layer, L3
     - transport: Transport layer, L4
     - application: Application layer, L5-L7
-    - data: Releated data structures
+    - data: Related data structures
     - dev: Device files
     - c_error: C oriented error (low-level error)
     - rs_error: Rust oriented error (high-level error)

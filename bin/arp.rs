@@ -18,11 +18,7 @@ use netlib::{
     or2anyway, throw_errno,
 };
 
-
-
 const BUF_SIZE: usize = 60;
-
-
 
 unsafe fn send_arp(
     sock: i32,
@@ -63,7 +59,6 @@ unsafe fn send_arp(
 
     write(buf.as_mut_ptr() as *mut Eth, eth);
     write(buf[size_of::<Eth>()..].as_mut_ptr() as *mut ARP, arp);
-
 
     Ok(throw_errno!(
         sendto(
@@ -110,7 +105,6 @@ unsafe fn recv_arp(sock: i32,) -> Result<()> {
 
 
 #[allow(non_camel_case_types)]
-#[allow(unused)]
 struct epollenv {
     epfd: i32,
     ev: epoll_event,
@@ -164,6 +158,8 @@ struct Cli {
     #[clap(short = 'i')]
     ifname: Option<String>,
 }
+
+
 fn main() -> Result<!> {
     let cli = Cli::parse();
 
@@ -174,6 +170,7 @@ fn main() -> Result<!> {
     unsafe {
         let ifaddrs = getifaddrs()?;
         let mut ifiter = ifaddrs.get_inet_items();
+
         let (ifname, ip) = if let Some(ifname) = cli.ifname {
             loop {
                 if let Some((name, ip, _mask)) = ifiter.next() {
@@ -227,6 +224,5 @@ fn main() -> Result<!> {
             i += 1;
         }
     }
-
 
 }

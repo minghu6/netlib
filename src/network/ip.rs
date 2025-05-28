@@ -26,7 +26,7 @@ defraw! {
 
         /// the datagram length.
         ///
-        /// the max value are 65536 bytes theoretically, typically however,
+        /// the max value are 65536 bytes theoremtically, typically however,
         /// the largest size is 1500 bytes.
         len: PL,
 
@@ -91,9 +91,7 @@ impl IP {
         p = p.add(1);
 
         write(p as *mut u16, htons(payload_len));
-
     }
-
 
 }
 
